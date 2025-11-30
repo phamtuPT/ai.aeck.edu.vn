@@ -1,5 +1,10 @@
-import React from 'react';
-import renderMathContent from '@/lib/renderMath';
+import React, { useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import rehypeHighlight from 'rehype-highlight';
+import 'katex/dist/katex.min.css';
+import 'highlight.js/styles/atom-one-dark.css';
 
 interface ChatMessage {
     role: 'user' | 'ai';
@@ -12,6 +17,46 @@ interface ChatMessagesProps {
     loading: boolean;
     messagesEndRef: React.RefObject<HTMLDivElement | null>;
 }
+
+function cleanMarkdown(content: string): string {
+    if (!content) return '';
+    // Fix missing ampersands
+    content = content.replace(/(^|[^&;])(gt|lt|amp|quot|apos|nbsp);/g, '$1&$2;');
+    // Decode entities
+    content = content.replaceAll("&lt;", "<")
+        .replaceAll("&gt;", ">")
+        .replaceAll("&amp;", "&")
+        .replaceAll("&nbsp;", " ");
+
+    // Normalize malformed HTML tags that might appear
+    content = content.replace(/<\s*(\/?)\s*(p|div|br|span|strong|em|u|s|b|i)\s*>/gi, '<$1$2>');
+
+    return content;
+}
+
+const CopyButton = ({ text }: { text: string }) => {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <button
+            onClick={handleCopy}
+            className="absolute top-2 right-2 p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-gray-400 hover:text-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+            title="Copy code"
+        >
+            {copied ? (
+                <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+            )}
+        </button>
+    );
+};
 
 export default function ChatMessages({ messages, loading, messagesEndRef }: ChatMessagesProps) {
     const suggestions = [
@@ -75,10 +120,39 @@ export default function ChatMessages({ messages, loading, messagesEndRef }: Chat
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="pl-2 py-2">
-                                        <div
-                                            className="prose prose-invert prose-p:text-gray-300 prose-headings:text-white prose-strong:text-white prose-li:text-gray-300 max-w-none [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&>p]:mb-4 last:[&>p]:mb-0 leading-relaxed"
-                                            dangerouslySetInnerHTML={{ __html: renderMathContent(msg.content) }}
-                                        />
+                                        <div className="prose prose-invert prose-p:text-gray-300 prose-headings:text-white prose-strong:text-white prose-li:text-gray-300 max-w-none [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&>p]:mb-4 last:[&>p]:mb-0 leading-relaxed">
+                                            <ReactMarkdown
+                                                remarkPlugins={[remarkMath]}
+                                                rehypePlugins={[rehypeKatex, rehypeHighlight]}
+                                                components={{
+                                                    pre: ({ node, children, ...props }) => (
+                                                        <div className="relative group my-4 rounded-lg overflow-hidden border border-white/10">
+                                                            <pre {...props} className="bg-[#1e1e1e] p-4 overflow-x-auto custom-scrollbar">
+                                                                {children}
+                                                            </pre>
+                                                            {/* Try to extract text from code block for copy button */}
+                                                            {/* This is a bit hacky because children is complex structure */}
+                                                            <CopyButton text={(node as any)?.children?.[0]?.children?.[0]?.value || ''} />
+                                                        </div>
+                                                    ),
+                                                    code: ({ node, className, children, ...props }) => {
+                                                        const match = /language-(\w+)/.exec(className || '');
+                                                        const isInline = !match && !className;
+                                                        return isInline ? (
+                                                            <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm font-mono text-pink-400" {...props}>
+                                                                {children}
+                                                            </code>
+                                                        ) : (
+                                                            <code className={className} {...props}>
+                                                                {children}
+                                                            </code>
+                                                        );
+                                                    }
+                                                }}
+                                            >
+                                                {cleanMarkdown(msg.content)}
+                                            </ReactMarkdown>
+                                        </div>
                                     </div>
                                 </div>
                             </>

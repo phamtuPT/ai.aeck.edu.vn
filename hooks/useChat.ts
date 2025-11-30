@@ -2,16 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { ChatMessage, Conversation } from '../types/chat';
 
-const formatAIResponse = (text: string) => {
-    let formatted = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-    if (formatted.match(/(?:^|\n)[-*] /)) {
-        formatted = formatted.replace(/(?:^|\n)[-*] (.*?)(?=\n|$)/g, '<li>$1</li>');
-    }
-    if (!formatted.includes('<br') && !formatted.includes('<p>')) {
-        formatted = formatted.replace(/\n/g, '<br>');
-    }
-    return formatted;
-};
 
 export function useChat() {
     const router = useRouter();
@@ -143,7 +133,7 @@ export function useChat() {
                 if (data.history) {
                     setMessages(data.history.map((msg: any) => ({
                         role: msg.role,
-                        content: msg.role === 'ai' ? formatAIResponse(msg.content) : msg.content,
+                        content: msg.content,
                         images: msg.images
                     })));
                 }
@@ -309,9 +299,9 @@ export function useChat() {
                     const newMessages = [...prev];
                     const lastMsg = newMessages[newMessages.length - 1];
                     if (lastMsg && lastMsg.role === 'ai') {
-                        lastMsg.content = formatAIResponse(aiResponse);
+                        lastMsg.content = aiResponse;
                     } else {
-                        newMessages.push({ role: 'ai', content: formatAIResponse(aiResponse) });
+                        newMessages.push({ role: 'ai', content: aiResponse });
                     }
                     return newMessages;
                 });

@@ -11,3 +11,11 @@ export interface Conversation {
     createdAt: string;
     updatedAt: string;
 }
+
+export interface ContextItem {
+    id: string;
+    content: string;
+    explanation?: string;
+    examId?: string;
+    score?: number;
+}

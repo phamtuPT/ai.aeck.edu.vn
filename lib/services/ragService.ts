@@ -1,11 +1,11 @@
 import { Collection } from 'mongodb';
+import { ContextItem } from '@/types/chat';
 
 export async function getContext(
     message: string,
     apiKey: string,
     examsCollection: Collection
-): Promise<string> {
-    let contextText = '';
+): Promise<ContextItem[]> {
     let relevantExams: any[] = [];
 
     // Try Vector Search first
@@ -27,6 +27,8 @@ export async function getContext(
                     },
                     {
                         $project: {
+                            _id: 1,
+                            title: 1,
                             questions: 1,
                             score: { $meta: "vectorSearchScore" }
                         }
@@ -53,8 +55,9 @@ export async function getContext(
         }
     }
 
+    const contextItems: ContextItem[] = [];
+
     if (relevantExams.length > 0) {
-        contextText = "\n\nThông tin tham khảo từ cơ sở dữ liệu:\n";
         relevantExams.forEach((exam: any) => {
             // Simplified: Take first 3 questions if vector search, or match regex if regex search
             let matchingQuestions = exam.questions.slice(0, 3);
@@ -70,11 +73,16 @@ export async function getContext(
             }
 
             matchingQuestions.forEach((q: any) => {
-                contextText += `- Câu hỏi: ${q.content}\n`;
-                if (q.explanation) contextText += `  Giải thích: ${q.explanation}\n`;
+                contextItems.push({
+                    id: q.id || 'unknown',
+                    content: q.content,
+                    explanation: q.explanation,
+                    examId: exam._id.toString(),
+                    score: exam.score
+                });
             });
         });
     }
 
-    return contextText;
+    return contextItems;
 }
