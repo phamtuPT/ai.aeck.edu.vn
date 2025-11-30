@@ -2,6 +2,17 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { ChatMessage, Conversation } from '../types/chat';
 
+const formatAIResponse = (text: string) => {
+    let formatted = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+    if (formatted.match(/(?:^|\n)[-*] /)) {
+        formatted = formatted.replace(/(?:^|\n)[-*] (.*?)(?=\n|$)/g, '<li>$1</li>');
+    }
+    if (!formatted.includes('<br') && !formatted.includes('<p>')) {
+        formatted = formatted.replace(/\n/g, '<br>');
+    }
+    return formatted;
+};
+
 export function useChat() {
     const router = useRouter();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -132,7 +143,7 @@ export function useChat() {
                 if (data.history) {
                     setMessages(data.history.map((msg: any) => ({
                         role: msg.role,
-                        content: msg.content,
+                        content: msg.role === 'ai' ? formatAIResponse(msg.content) : msg.content,
                         images: msg.images
                     })));
                 }
@@ -156,17 +167,6 @@ export function useChat() {
         const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
         const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
         isAtBottomRef.current = isAtBottom;
-    };
-
-    const formatAIResponse = (text: string) => {
-        let formatted = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-        if (formatted.match(/(?:^|\n)[-*] /)) {
-            formatted = formatted.replace(/(?:^|\n)[-*] (.*?)(?=\n|$)/g, '<li>$1</li>');
-        }
-        if (!formatted.includes('<br') && !formatted.includes('<p>')) {
-            formatted = formatted.replace(/\n/g, '<br>');
-        }
-        return formatted;
     };
 
     const saveApiKey = (key: string) => {
@@ -221,6 +221,17 @@ export function useChat() {
         router.push(`/chat?id=${id}`, undefined, { shallow: true });
     };
 
+    const abortControllerRef = useRef<AbortController | null>(null);
+
+    const stopGeneration = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+            setLoading(false);
+            isSendingRef.current = false;
+        }
+    };
+
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!input.trim() && selectedImages.length === 0) return;
@@ -243,6 +254,9 @@ export function useChat() {
 
         const token = localStorage.getItem('chatbot_token');
 
+        // Create new AbortController
+        abortControllerRef.current = new AbortController();
+
         try {
             setMessages(prev => [...prev, { role: 'ai', content: '' }]);
 
@@ -258,7 +272,8 @@ export function useChat() {
                     images: imagesToSend,
                     conversationId: conversationId,
                     history: messages.slice(-10)
-                })
+                }),
+                signal: abortControllerRef.current.signal
             });
 
             fetchConversations(token!);
@@ -301,19 +316,24 @@ export function useChat() {
                     return newMessages;
                 });
             }
-        } catch (error) {
-            console.error(error);
-            setMessages(prev => {
-                const newMessages = [...prev];
-                const lastMsg = newMessages[newMessages.length - 1];
-                if (lastMsg && lastMsg.role === 'ai' && !lastMsg.content) {
-                    lastMsg.content = 'Xin lỗi, có lỗi xảy ra. Vui lòng kiểm tra API Key.';
-                }
-                return newMessages;
-            });
+        } catch (error: any) {
+            if (error.name === 'AbortError') {
+                console.log('Generation stopped by user');
+            } else {
+                console.error(error);
+                setMessages(prev => {
+                    const newMessages = [...prev];
+                    const lastMsg = newMessages[newMessages.length - 1];
+                    if (lastMsg && lastMsg.role === 'ai' && !lastMsg.content) {
+                        lastMsg.content = 'Xin lỗi, có lỗi xảy ra. Vui lòng kiểm tra API Key.';
+                    }
+                    return newMessages;
+                });
+            }
         } finally {
             setLoading(false);
             isSendingRef.current = false;
+            abortControllerRef.current = null;
         }
     };
 
@@ -349,6 +369,7 @@ export function useChat() {
         saveApiKey,
         deleteConversation,
         handleRename,
-        handleLogout
+        handleLogout,
+        stopGeneration
     };
 }
