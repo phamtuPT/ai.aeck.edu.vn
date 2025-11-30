@@ -345,20 +345,23 @@ export function useChat() {
             fetchConversations(token!);
 
             if (!response.ok) {
-                let errorMessage = 'Failed to send message';
+                const text = await response.text();
+                let data;
                 try {
-                    const data = await response.json();
+                    data = JSON.parse(text);
+                } catch (e) {
+                    // Not JSON
+                }
+
+                if (data) {
                     if (response.status === 401 && data.error === 'API Key is missing') {
                         router.push('/settings');
                         throw new Error('API Key missing or invalid');
                     }
-                    errorMessage = data.error || errorMessage;
-                } catch (e) {
-                    // If JSON parse fails, try to get text
-                    const text = await response.text();
-                    errorMessage = text || `Error ${response.status}: ${response.statusText}`;
+                    throw new Error(data.error || text || `Error ${response.status}`);
+                } else {
+                    throw new Error(text || `Error ${response.status}: ${response.statusText}`);
                 }
-                throw new Error(errorMessage);
             }
             if (!response.body) throw new Error('No response body');
 
