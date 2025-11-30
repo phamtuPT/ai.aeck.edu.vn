@@ -344,15 +344,14 @@ export function useChat() {
 
             fetchConversations(token!);
 
-            if (response.status === 401) {
+            if (!response.ok) {
                 const data = await response.json();
-                if (data.error === 'API Key is missing') {
+                if (response.status === 401 && data.error === 'API Key is missing') {
                     router.push('/settings');
                     throw new Error('API Key missing or invalid');
                 }
+                throw new Error(data.error || 'Failed to send message');
             }
-
-            if (!response.ok) throw new Error('Failed to send message');
             if (!response.body) throw new Error('No response body');
 
             const newConversationId = response.headers.get('X-Conversation-Id');
@@ -389,12 +388,12 @@ export function useChat() {
                 console.log('Generation stopped by user');
             } else {
                 console.error(error);
-                toast.error('Có lỗi xảy ra. Vui lòng kiểm tra API Key và thử lại.');
+                toast.error(`Lỗi: ${error.message || 'Có lỗi xảy ra. Vui lòng kiểm tra API Key.'}`);
                 setMessages(prev => {
                     const newMessages = [...prev];
                     const lastMsg = newMessages[newMessages.length - 1];
                     if (lastMsg && lastMsg.role === 'ai' && !lastMsg.content) {
-                        lastMsg.content = 'Xin lỗi, có lỗi xảy ra. Vui lòng kiểm tra API Key.';
+                        lastMsg.content = `Lỗi: ${error.message || 'Có lỗi xảy ra. Vui lòng kiểm tra API Key.'}`;
                     }
                     return newMessages;
                 });
