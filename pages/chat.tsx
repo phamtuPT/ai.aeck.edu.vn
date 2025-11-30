@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import ChatSidebar from '@/components/chat/ChatSidebar';
 import ChatMessages from '@/components/chat/ChatMessages';
 import ChatInput from '@/components/chat/ChatInput';
-import SettingsModal from '@/components/chat/SettingsModal';
 import { useChat } from '@/hooks/useChat';
 
 export default function ChatPage() {
+    const router = useRouter();
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
     useEffect(() => {
@@ -27,8 +28,6 @@ export default function ChatPage() {
         user,
         apiKey,
         setApiKey,
-        showSettings,
-        setShowSettings,
         conversations,
         conversationId,
         handleSendMessage,
@@ -37,7 +36,6 @@ export default function ChatPage() {
         handleFileSelect,
         removeImage,
         handlePaste,
-        saveApiKey,
         deleteConversation,
         handleRename,
         handleLogout,
@@ -72,7 +70,7 @@ export default function ChatPage() {
                 onDeleteConversation={deleteConversation}
                 user={user}
                 onLogout={handleLogout}
-                onOpenSettings={() => setShowSettings(true)}
+                onOpenSettings={() => router.push('/settings')}
             />
 
             <main className="flex-1 flex flex-col relative min-w-0 z-10 w-full">
@@ -121,14 +119,6 @@ export default function ChatPage() {
                     stopGeneration={stopGeneration}
                 />
             </main>
-
-            <SettingsModal
-                showSettings={showSettings}
-                onClose={() => setShowSettings(false)}
-                apiKey={apiKey}
-                setApiKey={setApiKey}
-                onSave={() => saveApiKey(apiKey)}
-            />
         </div>
     );
 }

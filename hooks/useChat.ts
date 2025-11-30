@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { ChatMessage, Conversation } from '../types/chat';
+import { ChatMessage, Conversation, User, ConversationsResponse } from '../types/chat';
+import { toast } from 'sonner';
 
 
 export function useChat() {
@@ -14,9 +15,8 @@ export function useChat() {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const isAtBottomRef = useRef(true);
     const isSendingRef = useRef(false);
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<User | null>(null);
     const [apiKey, setApiKey] = useState('');
-    const [showSettings, setShowSettings] = useState(false);
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [conversationId, setConversationId] = useState<string | null>(null);
 
@@ -25,12 +25,15 @@ export function useChat() {
             headers: { 'Authorization': `Bearer ${token}` }
         })
             .then(res => res.json())
-            .then(data => {
+            .then((data: ConversationsResponse) => {
                 if (data.conversations) {
                     setConversations(data.conversations);
                 }
             })
-            .catch(err => console.error(err));
+            .catch(err => {
+                console.error(err);
+                toast.error('Không thể tải danh sách cuộc trò chuyện');
+            });
     };
 
     const deleteConversation = async (id: string) => {
@@ -48,9 +51,13 @@ export function useChat() {
                 if (conversationId === id) {
                     handleNewChat();
                 }
+                toast.success('Đã xóa cuộc trò chuyện');
+            } else {
+                toast.error('Xóa cuộc trò chuyện thất bại');
             }
         } catch (error) {
             console.error('Failed to delete conversation:', error);
+            toast.error('Có lỗi xảy ra khi xóa cuộc trò chuyện');
         }
     };
 
@@ -70,9 +77,13 @@ export function useChat() {
 
             if (res.ok) {
                 setConversations(prev => prev.map(c => c._id === id ? { ...c, title: newTitle } : c));
+                toast.success('Đã đổi tên cuộc trò chuyện');
+            } else {
+                toast.error('Đổi tên thất bại');
             }
         } catch (error) {
             console.error('Failed to rename conversation:', error);
+            toast.error('Có lỗi xảy ra khi đổi tên');
         }
     };
 
@@ -91,7 +102,7 @@ export function useChat() {
         if (storedKey) {
             setApiKey(storedKey);
         } else {
-            setShowSettings(true);
+            toast.info('Vui lòng nhập API Key để bắt đầu');
         }
 
         fetchConversations(token);
@@ -138,7 +149,10 @@ export function useChat() {
                     })));
                 }
             })
-            .catch(err => console.error(err))
+            .catch(err => {
+                console.error(err);
+                toast.error('Không thể tải lịch sử trò chuyện');
+            })
             .finally(() => setLoading(false));
     }, [conversationId]);
 
@@ -157,12 +171,6 @@ export function useChat() {
         const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
         const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
         isAtBottomRef.current = isAtBottom;
-    };
-
-    const saveApiKey = (key: string) => {
-        localStorage.setItem('user_gemini_api_key', key);
-        setApiKey(key);
-        setShowSettings(false);
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -219,6 +227,7 @@ export function useChat() {
             abortControllerRef.current = null;
             setLoading(false);
             isSendingRef.current = false;
+            toast.info('Đã dừng tạo câu trả lời');
         }
     };
 
@@ -226,10 +235,15 @@ export function useChat() {
         e.preventDefault();
         if (!input.trim() && selectedImages.length === 0) return;
 
-        if (!apiKey) {
-            setShowSettings(true);
+        // Check for API key again just in case
+        const currentApiKey = localStorage.getItem('user_gemini_api_key');
+        if (!currentApiKey) {
+            router.push('/settings');
+            toast.error('Vui lòng nhập API Key');
             return;
         }
+        if (currentApiKey !== apiKey) setApiKey(currentApiKey);
+
 
         const promptToSend = input.trim();
         const imagesToSend = [...selectedImages];
@@ -255,7 +269,7 @@ export function useChat() {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
-                    'x-user-api-key': apiKey
+                    'x-user-api-key': currentApiKey
                 },
                 body: JSON.stringify({
                     message: promptToSend,
@@ -271,7 +285,7 @@ export function useChat() {
             if (response.status === 401) {
                 const data = await response.json();
                 if (data.error === 'API Key is missing') {
-                    setShowSettings(true);
+                    router.push('/settings');
                     throw new Error('API Key missing or invalid');
                 }
             }
@@ -311,6 +325,7 @@ export function useChat() {
                 console.log('Generation stopped by user');
             } else {
                 console.error(error);
+                toast.error('Có lỗi xảy ra. Vui lòng kiểm tra API Key và thử lại.');
                 setMessages(prev => {
                     const newMessages = [...prev];
                     const lastMsg = newMessages[newMessages.length - 1];
@@ -331,6 +346,7 @@ export function useChat() {
         localStorage.removeItem('chatbot_token');
         localStorage.removeItem('chatbot_user');
         router.push('/');
+        toast.success('Đã đăng xuất');
     };
 
     return {
@@ -346,8 +362,6 @@ export function useChat() {
         user,
         apiKey,
         setApiKey,
-        showSettings,
-        setShowSettings,
         conversations,
         conversationId,
         handleSendMessage,
@@ -356,7 +370,6 @@ export function useChat() {
         handleFileSelect,
         removeImage,
         handlePaste,
-        saveApiKey,
         deleteConversation,
         handleRename,
         handleLogout,

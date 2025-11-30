@@ -19,3 +19,15 @@ export interface ContextItem {
     examId?: string;
     score?: number;
 }
+
+export interface User {
+    id: string;
+    username: string;
+    email: string;
+    fullName: string;
+    role: string;
+}
+
+export interface ConversationsResponse {
+    conversations: Conversation[];
+}
