@@ -45,8 +45,8 @@ export default function LoginPage() {
 
             <div className="w-full max-w-md bg-[#1e1f20] rounded-2xl border border-[#444746] p-8 shadow-2xl">
                 <div className="text-center mb-8">
-                    <div className="w-16 h-16 bg-violet-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold text-white">
-                        AI
+                    <div className="w-24 h-24 mx-auto mb-4 flex items-center justify-center">
+                        <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
                     </div>
                     <h1 className="text-2xl font-semibold text-white">Đăng nhập</h1>
                     <p className="text-[#c4c7c5] mt-2 text-sm">Sử dụng tài khoản AECK của bạn</p>
@@ -86,7 +86,7 @@ export default function LoginPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-[#0b57d0] hover:bg-[#0b57d0]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-3 rounded-full transition-all flex items-center justify-center gap-2"
+                        className="w-full bg-white hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed text-black font-medium py-3 rounded-full transition-all flex items-center justify-center gap-2"
                     >
                         {loading ? (
                             <>
