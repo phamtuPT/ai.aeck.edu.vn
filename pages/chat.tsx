@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import ChatSidebar from '@/components/chat/ChatSidebar';
 import ChatMessages from '@/components/chat/ChatMessages';
@@ -8,6 +8,12 @@ import { useChat } from '@/hooks/useChat';
 
 export default function ChatPage() {
     const [sidebarOpen, setSidebarOpen] = useState(true);
+
+    useEffect(() => {
+        if (window.innerWidth < 768) {
+            setSidebarOpen(false);
+        }
+    }, []);
     const {
         messages,
         input,
