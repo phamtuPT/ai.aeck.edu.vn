@@ -327,6 +327,7 @@ export function useChat() {
 
             const response = await fetch('/api/chat', {
                 method: 'POST',
+                cache: 'no-store',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
