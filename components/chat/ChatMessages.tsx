@@ -67,7 +67,7 @@ export default function ChatMessages({ messages, loading, messagesEndRef }: Chat
     ];
 
     return (
-        <div className="max-w-[800px] mx-auto pt-8 pb-12">
+        <div className="max-w-[800px] mx-auto pt-4 md:pt-8 pb-12">
             {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-fade-in">
                     <div className="w-24 h-24 bg-white/5 rounded-3xl flex items-center justify-center mb-8 shadow-xl border border-white/10 backdrop-blur-sm">

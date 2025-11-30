@@ -26,7 +26,7 @@ export default function ChatInput({
     stopGeneration
 }: ChatInputProps) {
     return (
-        <div className="absolute bottom-0 left-0 right-0 p-4 z-10 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent pb-6 pt-10">
+        <div className="absolute bottom-0 left-0 right-0 p-2 md:p-4 z-10 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent pb-4 md:pb-6 pt-6 md:pt-10">
             <div className="max-w-[800px] mx-auto relative">
                 <div className="relative bg-[#1e1f20]/50 backdrop-blur-xl rounded-[24px] border border-white/10 shadow-2xl shadow-black/50 transition-all duration-300 group focus-within:border-white/30">
                     <form onSubmit={onSendMessage} className="flex flex-col">

@@ -51,8 +51,8 @@ export default function LoginPage() {
 
             <div className="w-full max-w-md bg-black/40 backdrop-blur-xl rounded-3xl border border-white/10 p-8 shadow-2xl relative z-10">
                 <div className="text-center mb-10">
-                    <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center bg-white/5 rounded-2xl border border-white/10 shadow-lg">
-                        <img src="/logo.png" alt="Logo" className="w-12 h-12 object-contain opacity-90" />
+                    <div className="flex justify-center mb-6">
+                        <img src="/AECK_AI_white.png" alt="Logo" className="h-16 object-contain" />
                     </div>
                     <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Chào mừng trở lại</h1>
                     <p className="text-gray-400 text-sm">Đăng nhập để tiếp tục với Trợ giảng AI</p>
