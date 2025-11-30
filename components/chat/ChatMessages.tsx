@@ -61,7 +61,7 @@ export default function ChatMessages({ messages, loading, messagesEndRef }: Chat
                                     </div>
                                 )}
                                 {msg.content && (
-                                    <div className="bg-white text-black px-6 py-3.5 rounded-2xl rounded-tr-sm shadow-lg leading-relaxed text-[15px]">
+                                    <div className="bg-[#1e1f20] text-white px-6 py-3.5 rounded-2xl rounded-tr-sm shadow-lg leading-relaxed text-[15px]">
                                         {msg.content}
                                     </div>
                                 )}
@@ -74,7 +74,7 @@ export default function ChatMessages({ messages, loading, messagesEndRef }: Chat
                                     </div>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <div className="bg-white/5 border border-white/5 rounded-2xl rounded-tl-sm px-6 py-4 shadow-sm">
+                                    <div className="pl-2 py-2">
                                         <div
                                             className="prose prose-invert prose-p:text-gray-300 prose-headings:text-white prose-strong:text-white prose-li:text-gray-300 max-w-none [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&>p]:mb-4 last:[&>p]:mb-0 leading-relaxed"
                                             dangerouslySetInnerHTML={{ __html: renderMathContent(msg.content) }}
@@ -93,7 +93,7 @@ export default function ChatMessages({ messages, loading, messagesEndRef }: Chat
                                 <img src="/avt_chatbot.jpg" alt="AI" className="w-full h-full object-cover rounded-full bg-black" />
                             </div>
                         </div>
-                        <div className="flex items-center gap-1 bg-white/5 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-3 h-fit">
+                        <div className="flex items-center gap-1 pl-2 py-3 h-fit">
                             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
