@@ -55,13 +55,13 @@ export default function ChatInput({
     const currentModeLabel = modes.find(m => m.id === selectedMode)?.label || 'Tổng quan';
 
     return (
-        <div className="absolute bottom-0 left-0 right-0 p-2 md:p-4 z-10 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent pb-4 md:pb-6 pt-6 md:pt-10">
+        <div className="absolute bottom-0 left-0 right-0 p-2 md:p-4 z-10 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent pb-2 md:pb-6 pt-4 md:pt-10">
             <div className="max-w-[800px] mx-auto relative">
                 <div
                     className="relative bg-[#1e1f20] rounded-[24px] border border-white/10 shadow-2xl shadow-black/50 transition-all duration-300 group focus-within:border-white/30 cursor-text"
                     onClick={() => textareaRef.current?.focus()}
                 >
-                    <form onSubmit={onSendMessage} className="flex flex-col min-h-[120px]">
+                    <form onSubmit={onSendMessage} className="flex flex-col min-h-[60px] md:min-h-[120px]">
                         {/* Attachments Preview */}
                         {attachments.length > 0 && (
                             <div className="px-4 pt-3 flex gap-2 overflow-x-auto custom-scrollbar">

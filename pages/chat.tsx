@@ -135,7 +135,7 @@ export default function ChatPage() {
                 <div
                     ref={scrollContainerRef}
                     onScroll={handleScroll}
-                    className="flex-1 overflow-y-auto px-2 md:px-4 pb-32 md:pb-48 scroll-smooth custom-scrollbar"
+                    className="flex-1 overflow-y-auto px-2 md:px-4 pb-28 md:pb-48 scroll-smooth custom-scrollbar"
                 >
                     <ChatMessages
                         messages={messages}
