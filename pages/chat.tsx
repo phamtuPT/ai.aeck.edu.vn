@@ -20,7 +20,8 @@ export default function ChatPage() {
         input,
         setInput,
         loading,
-        selectedImages,
+        isThinking,
+        attachments,
         messagesEndRef,
         fileInputRef,
         scrollContainerRef,
@@ -34,10 +35,12 @@ export default function ChatPage() {
         handleNewChat,
         selectConversation,
         handleFileSelect,
-        removeImage,
+        removeAttachment,
         handlePaste,
         deleteConversation,
         handleRename,
+        togglePin,
+        toggleArchive,
         handleLogout,
         stopGeneration,
         selectedMode,
@@ -69,6 +72,8 @@ export default function ChatPage() {
                 onNewChat={onNewChat}
                 onSelectConversation={onSelectConversation}
                 onRenameConversation={handleRename}
+                onTogglePin={togglePin}
+                onToggleArchive={toggleArchive}
                 onDeleteConversation={deleteConversation}
                 user={user}
                 onLogout={handleLogout}
@@ -104,6 +109,7 @@ export default function ChatPage() {
                     <ChatMessages
                         messages={messages}
                         loading={loading}
+                        isThinking={isThinking}
                         messagesEndRef={messagesEndRef}
                     />
                 </div>
@@ -114,8 +120,8 @@ export default function ChatPage() {
                     onSendMessage={handleSendMessage}
                     onFileSelect={handleFileSelect}
                     fileInputRef={fileInputRef}
-                    selectedImages={selectedImages}
-                    onRemoveImage={removeImage}
+                    attachments={attachments}
+                    onRemoveAttachment={removeAttachment}
                     loading={loading}
                     onPaste={handlePaste}
                     stopGeneration={stopGeneration}

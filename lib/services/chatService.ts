@@ -7,7 +7,7 @@ export async function saveUserMessage(
     userId: string,
     conversationId: string,
     message: string,
-    images: string[]
+    attachments: any[]
 ) {
     const userMsgId = new ObjectId();
     await historyCollection.insertOne({
@@ -16,7 +16,7 @@ export async function saveUserMessage(
         conversationId,
         role: 'user',
         content: message,
-        images: images || [],
+        attachments: attachments || [],
         createdAt: new Date()
     });
     return userMsgId;
@@ -76,4 +76,88 @@ export async function manageConversationMetadata(
             { upsert: true }
         );
     }
+}
+
+export async function getSmartHistory(
+    historyCollection: Collection,
+    conversationId: string,
+    aiClient: GoogleGenAI
+): Promise<any[]> {
+    // Fetch last 20 messages
+    const messages = await historyCollection.find({ conversationId })
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .toArray();
+
+    const sortedMessages = messages.reverse();
+
+    const formatMessage = (msg: any) => {
+        const parts: any[] = [{ text: msg.content || '' }]; // Ensure text is not undefined
+
+        // Handle new attachments structure
+        if (msg.attachments && Array.isArray(msg.attachments)) {
+            msg.attachments.forEach((att: any) => {
+                if (att.type.startsWith('image/')) {
+                    const match = att.url.match(/^data:([^;]+);(?:charset=[^;]+;)?base64,(.*)$/);
+                    if (match) {
+                        parts.push({
+                            inlineData: {
+                                mimeType: match[1],
+                                data: match[2]
+                            }
+                        });
+                    }
+                }
+            });
+        }
+        // Handle legacy images structure
+        else if (msg.images && Array.isArray(msg.images)) {
+            msg.images.forEach((img: string) => {
+                const match = img.match(/^data:([^;]+);(?:charset=[^;]+;)?base64,(.*)$/);
+                if (match) {
+                    parts.push({
+                        inlineData: {
+                            mimeType: match[1],
+                            data: match[2]
+                        }
+                    });
+                }
+            });
+        }
+
+        return {
+            role: msg.role === 'ai' ? 'model' : 'user',
+            parts: parts
+        };
+    };
+
+    if (sortedMessages.length <= 10) {
+        return sortedMessages.map(formatMessage);
+    }
+
+    // Split into older and recent
+    const olderMessages = sortedMessages.slice(0, sortedMessages.length - 10);
+    const recentMessages = sortedMessages.slice(sortedMessages.length - 10);
+
+    // Summarize older messages
+    const textToSummarize = olderMessages.map(m => `${m.role}: ${m.content}`).join('\n');
+    let summary = "Previous conversation summary: ";
+    try {
+        const summaryGen = await aiClient.models.generateContent({
+            model: 'gemini-1.5-flash',
+            contents: [{ role: 'user', parts: [{ text: `Summarize this conversation concisely:\n${textToSummarize}` }] }]
+        });
+        summary += summaryGen.candidates?.[0]?.content?.parts?.[0]?.text || "No summary available.";
+    } catch (e) {
+        console.error('Summarization failed', e);
+        summary += "Content unavailable.";
+    }
+
+    const history = [
+        { role: 'user', parts: [{ text: summary }] },
+        { role: 'model', parts: [{ text: "Understood. I will use this summary as context." }] },
+        ...recentMessages.map(formatMessage)
+    ];
+
+    return history;
 }

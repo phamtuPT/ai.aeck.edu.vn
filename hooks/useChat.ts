@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { ChatMessage, Conversation, User, ConversationsResponse } from '../types/chat';
+import { ChatMessage, Conversation, User, ConversationsResponse, Attachment } from '../types/chat';
 import { toast } from 'sonner';
 
 
@@ -9,7 +9,7 @@ export function useChat() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
-    const [selectedImages, setSelectedImages] = useState<string[]>([]);
+    const [attachments, setAttachments] = useState<Attachment[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -19,6 +19,7 @@ export function useChat() {
     const [apiKey, setApiKey] = useState('');
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [conversationId, setConversationId] = useState<string | null>(null);
+    const [isThinking, setIsThinking] = useState(false);
     const [selectedMode, setSelectedMode] = useState<'general' | 'math' | 'reading' | 'science'>('general');
 
     const fetchConversations = (token: string) => {
@@ -88,6 +89,42 @@ export function useChat() {
         }
     };
 
+    const togglePin = async (id: string, isPinned: boolean) => {
+        const token = localStorage.getItem('chatbot_token');
+        if (!token) return;
+        try {
+            const res = await fetch('/api/conversations', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ conversationId: id, isPinned })
+            });
+            if (res.ok) {
+                setConversations(prev => prev.map(c => c._id === id ? { ...c, isPinned } : c));
+                toast.success(isPinned ? 'Đã ghim cuộc trò chuyện' : 'Đã bỏ ghim');
+            }
+        } catch (error) {
+            toast.error('Lỗi khi cập nhật trạng thái ghim');
+        }
+    };
+
+    const toggleArchive = async (id: string, isArchived: boolean) => {
+        const token = localStorage.getItem('chatbot_token');
+        if (!token) return;
+        try {
+            const res = await fetch('/api/conversations', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ conversationId: id, isArchived })
+            });
+            if (res.ok) {
+                setConversations(prev => prev.map(c => c._id === id ? { ...c, isArchived } : c));
+                toast.success(isArchived ? 'Đã lưu trữ cuộc trò chuyện' : 'Đã bỏ lưu trữ');
+            }
+        } catch (error) {
+            toast.error('Lỗi khi cập nhật trạng thái lưu trữ');
+        }
+    };
+
     useEffect(() => {
         const token = localStorage.getItem('chatbot_token');
         const userData = localStorage.getItem('chatbot_user');
@@ -146,7 +183,7 @@ export function useChat() {
                     setMessages(data.history.map((msg: any) => ({
                         role: msg.role,
                         content: msg.content,
-                        images: msg.images
+                        attachments: msg.attachments || (msg.images ? msg.images.map((img: string) => ({ type: 'image/png', url: img, name: 'Image' })) : [])
                     })));
                 }
             })
@@ -180,26 +217,42 @@ export function useChat() {
             files.forEach(file => {
                 const reader = new FileReader();
                 reader.onloadend = () => {
-                    setSelectedImages(prev => [...prev, reader.result as string]);
+                    setAttachments(prev => [...prev, {
+                        name: file.name,
+                        type: file.type,
+                        url: reader.result as string
+                    }]);
                 };
                 reader.readAsDataURL(file);
             });
+            // Reset input value to allow selecting the same file again
+            e.target.value = '';
         }
     };
 
-    const removeImage = (index: number) => {
-        setSelectedImages(prev => prev.filter((_, i) => i !== index));
+    const removeAttachment = (index: number) => {
+        setAttachments(prev => prev.filter((_, i) => i !== index));
     };
 
     const handlePaste = (e: React.ClipboardEvent) => {
         const items = e.clipboardData.items;
+        console.log('Paste event detected, items:', items.length);
+
         for (let i = 0; i < items.length; i++) {
+            console.log(`Item ${i} type:`, items[i].type);
             if (items[i].type.indexOf('image') !== -1) {
+                e.preventDefault(); // Prevent default paste behavior for images
                 const blob = items[i].getAsFile();
+                const fileType = items[i].type; // Capture type synchronously
                 if (blob) {
+                    console.log('Processing pasted image');
                     const reader = new FileReader();
                     reader.onload = (event) => {
-                        setSelectedImages(prev => [...prev, event.target?.result as string]);
+                        setAttachments(prev => [...prev, {
+                            name: 'Pasted Image',
+                            type: fileType,
+                            url: event.target?.result as string
+                        }]);
                     };
                     reader.readAsDataURL(blob);
                 }
@@ -211,7 +264,7 @@ export function useChat() {
         setConversationId(null);
         setMessages([]);
         setInput('');
-        setSelectedImages([]);
+        setAttachments([]);
         router.push('/chat', undefined, { shallow: true });
     };
 
@@ -234,7 +287,7 @@ export function useChat() {
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!input.trim() && selectedImages.length === 0) return;
+        if (!input.trim() && attachments.length === 0) return;
 
         // Check for API key again just in case
         const currentApiKey = localStorage.getItem('user_gemini_api_key');
@@ -247,13 +300,14 @@ export function useChat() {
 
 
         const promptToSend = input.trim();
-        const imagesToSend = [...selectedImages];
+        const attachmentsToSend = [...attachments];
 
         setInput('');
-        setSelectedImages([]);
+        setAttachments([]);
 
-        setMessages(prev => [...prev, { role: 'user', content: promptToSend, images: imagesToSend }]);
+        setMessages(prev => [...prev, { role: 'user', content: promptToSend, attachments: attachmentsToSend }]);
         setLoading(true);
+        setIsThinking(true);
         isAtBottomRef.current = true;
         isSendingRef.current = true;
 
@@ -265,16 +319,18 @@ export function useChat() {
         try {
             setMessages(prev => [...prev, { role: 'ai', content: '' }]);
 
+            console.log('Sending request with API Key:', currentApiKey ? 'Present' : 'Missing');
+
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
-                    'x-user-api-key': currentApiKey
+                    'x-user-api-key': currentApiKey.trim()
                 },
                 body: JSON.stringify({
                     message: promptToSend,
-                    images: imagesToSend,
+                    attachments: attachmentsToSend,
                     conversationId: conversationId,
                     history: messages.slice(-10),
                     mode: selectedMode
@@ -311,6 +367,8 @@ export function useChat() {
                 const chunk = decoder.decode(value, { stream: true });
                 aiResponse += chunk;
 
+                if (isThinking) setIsThinking(false);
+
                 setMessages(prev => {
                     const newMessages = [...prev];
                     const lastMsg = newMessages[newMessages.length - 1];
@@ -339,6 +397,7 @@ export function useChat() {
             }
         } finally {
             setLoading(false);
+            setIsThinking(false);
             isSendingRef.current = false;
             abortControllerRef.current = null;
         }
@@ -356,7 +415,8 @@ export function useChat() {
         input,
         setInput,
         loading,
-        selectedImages,
+        isThinking,
+        attachments,
         messagesEndRef,
         fileInputRef,
         scrollContainerRef,
@@ -370,10 +430,12 @@ export function useChat() {
         handleNewChat,
         selectConversation,
         handleFileSelect,
-        removeImage,
+        removeAttachment,
         handlePaste,
         deleteConversation,
         handleRename,
+        togglePin,
+        toggleArchive,
         handleLogout,
         stopGeneration,
         selectedMode,

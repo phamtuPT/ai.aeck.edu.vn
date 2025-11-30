@@ -21,7 +21,7 @@ export default function SettingsPage() {
             toast.error('API Key không được để trống');
             return;
         }
-        localStorage.setItem('user_gemini_api_key', apiKey);
+        localStorage.setItem('user_gemini_api_key', apiKey.trim());
         toast.success('Đã lưu API Key');
     };
 

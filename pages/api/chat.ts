@@ -8,3 +8,10 @@ export default async function handler(
     await handleChatRequest(req, res);
 }
 
+export const config = {
+    api: {
+        bodyParser: {
+            sizeLimit: '10mb',
+        },
+    },
+};

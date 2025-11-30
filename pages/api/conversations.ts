@@ -5,7 +5,7 @@ export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
-    if (req.method !== 'GET' && req.method !== 'DELETE') {
+    if (req.method !== 'GET' && req.method !== 'DELETE' && req.method !== 'PATCH') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
@@ -60,15 +60,20 @@ export default async function handler(
         }
 
         if (req.method === 'PATCH') {
-            const { conversationId, title } = req.body;
-            if (!conversationId || !title) {
-                return res.status(400).json({ error: 'Missing conversationId or title' });
+            const { conversationId, title, isPinned, isArchived } = req.body;
+            if (!conversationId) {
+                return res.status(400).json({ error: 'Missing conversationId' });
             }
+
+            const updateFields: any = { updatedAt: new Date() };
+            if (title !== undefined) updateFields.title = title;
+            if (isPinned !== undefined) updateFields.isPinned = isPinned;
+            if (isArchived !== undefined) updateFields.isArchived = isArchived;
 
             const conversationsCollection = dbChatbot.collection('conversations');
             await conversationsCollection.updateOne(
                 { _id: conversationId, userId: session.userId },
-                { $set: { title: title, updatedAt: new Date() } }
+                { $set: updateFields }
             );
 
             return res.status(200).json({ success: true });

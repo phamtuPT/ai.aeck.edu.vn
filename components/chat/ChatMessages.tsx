@@ -8,12 +8,13 @@ import CodeBlock from '../ui/CodeBlock';
 interface ChatMessage {
     role: 'user' | 'ai';
     content: string;
-    images?: string[];
+    attachments?: { name: string; type: string; url: string }[];
 }
 
 interface ChatMessagesProps {
     messages: ChatMessage[];
     loading: boolean;
+    isThinking: boolean;
     messagesEndRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -33,7 +34,7 @@ function cleanMarkdown(content: string): string {
     return content;
 }
 
-export default function ChatMessages({ messages, loading, messagesEndRef }: ChatMessagesProps) {
+export default function ChatMessages({ messages, loading, isThinking, messagesEndRef }: ChatMessagesProps) {
     const suggestions = [
         "Giải thích bài toán này",
         "Tạo đề thi mẫu",
@@ -70,10 +71,24 @@ export default function ChatMessages({ messages, loading, messagesEndRef }: Chat
                     <div key={idx} className={`group animate-slide-up ${msg.role === 'user' ? 'flex justify-end' : 'flex gap-4'}`}>
                         {msg.role === 'user' ? (
                             <div className="flex flex-col items-end max-w-[85%]">
-                                {msg.images && msg.images.length > 0 && (
+                                {msg.attachments && msg.attachments.length > 0 && (
                                     <div className="flex flex-wrap gap-2 mb-2 justify-end">
-                                        {msg.images.map((img, i) => (
-                                            <img key={i} src={img} alt="User upload" className="max-w-[200px] max-h-[200px] rounded-xl object-cover border border-white/10 shadow-md" />
+                                        {msg.attachments.map((file, i) => (
+                                            <div key={i}>
+                                                {file.type.startsWith('image/') ? (
+                                                    <img src={file.url} alt={file.name} className="max-w-[200px] max-h-[200px] rounded-xl object-cover border border-white/10 shadow-md" />
+                                                ) : (
+                                                    <div className="flex items-center gap-3 p-3 bg-[#1e1f20] border border-white/10 rounded-xl shadow-md max-w-[250px]">
+                                                        <div className="h-10 w-10 flex items-center justify-center bg-white/5 rounded-lg">
+                                                            <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-medium text-white truncate">{file.name}</p>
+                                                            <p className="text-xs text-gray-400">Document</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         ))}
                                     </div>
                                 )}
@@ -126,7 +141,17 @@ export default function ChatMessages({ messages, loading, messagesEndRef }: Chat
                     </div>
                 ))}
 
-                {loading && (
+                {loading && messages.length === 0 && (
+                    <div className="flex justify-center items-center py-20">
+                        <div className="flex space-x-1">
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                        </div>
+                    </div>
+                )}
+
+                {isThinking && (
                     <div className="flex gap-4 animate-fade-in">
                         <div className="flex-shrink-0 mt-1">
                             <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center bg-white p-0.5">
@@ -134,7 +159,11 @@ export default function ChatMessages({ messages, loading, messagesEndRef }: Chat
                             </div>
                         </div>
                         <div className="flex items-center gap-1 pl-2 py-3 h-fit">
-                            <div className="loader"></div>
+                            <div className="flex space-x-1">
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                            </div>
                         </div>
                     </div>
                 )}

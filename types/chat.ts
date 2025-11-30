@@ -1,7 +1,13 @@
 export interface ChatMessage {
     role: 'user' | 'ai';
     content: string;
-    images?: string[];
+    attachments?: Attachment[];
+}
+
+export interface Attachment {
+    name: string;
+    type: string;
+    url: string;
 }
 
 export interface Conversation {
@@ -10,6 +16,8 @@ export interface Conversation {
     lastMessage?: string;
     createdAt: string;
     updatedAt: string;
+    isPinned?: boolean;
+    isArchived?: boolean;
 }
 
 export interface ContextItem {

@@ -55,33 +55,15 @@ export async function generateStream({
 
     // Add history
     if (history && Array.isArray(history)) {
-        history.forEach((msg: any) => {
-            const parts: any[] = [{ text: msg.content }];
-            if (msg.images && Array.isArray(msg.images)) {
-                msg.images.forEach((img: string) => {
-                    const match = img.match(/^data:(.*?);base64,(.*)$/);
-                    if (match) {
-                        parts.push({
-                            inlineData: {
-                                mimeType: match[1],
-                                data: match[2]
-                            }
-                        });
-                    }
-                });
-            }
-            contents.push({
-                role: msg.role === 'user' ? 'user' : 'model',
-                parts: parts
-            });
-        });
+        contents.push(...history);
     }
 
     // Add current message with context
     const currentParts: any[] = [{ text: message + contextText }]; // Inject context
     if (images && Array.isArray(images)) {
         images.forEach((img: string) => {
-            const match = img.match(/^data:(.*?);base64,(.*)$/);
+            // Robust regex to handle various data URI formats (e.g. with or without charset)
+            const match = img.match(/^data:([^;]+);(?:charset=[^;]+;)?base64,(.*)$/);
             if (match) {
                 currentParts.push({
                     inlineData: {
