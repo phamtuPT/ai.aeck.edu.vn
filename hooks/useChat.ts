@@ -292,8 +292,12 @@ export function useChat() {
         // Check for API key again just in case
         const currentApiKey = localStorage.getItem('user_gemini_api_key');
         if (!currentApiKey) {
-            router.push('/settings');
-            toast.error('Vui lòng nhập API Key');
+            toast.error('Vui lòng nhập API Key để tiếp tục', {
+                action: {
+                    label: 'Cài đặt',
+                    onClick: () => router.push('/settings')
+                }
+            });
             return;
         }
         if (currentApiKey !== apiKey) setApiKey(currentApiKey);
