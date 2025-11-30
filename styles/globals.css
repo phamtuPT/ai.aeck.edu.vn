@@ -26,13 +26,25 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .animate-fade-in {
@@ -60,4 +72,41 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #444746;
+}
+
+/* Custom Loader */
+.loader {
+  width: 40px;
+  aspect-ratio: 1;
+  --g1: conic-gradient(from 90deg at top 3px left 3px, #0000 90deg, #fff 0);
+  --g2: conic-gradient(from -90deg at bottom 3px right 3px, #0000 90deg, #fff 0);
+  background:
+    var(--g1), var(--g1), var(--g1), var(--g1),
+    var(--g2), var(--g2), var(--g2), var(--g2);
+  background-position: 0 0, 100% 0, 100% 100%, 0 100%;
+  background-size: 20px 20px;
+  background-repeat: no-repeat;
+  animation: l11 1.5s infinite;
+}
+
+@keyframes l11 {
+  0% {
+    background-size: 30px 10px, 10px 10px, 10px 30px, 30px 30px
+  }
+
+  25% {
+    background-size: 30px 30px, 10px 30px, 10px 10px, 30px 10px
+  }
+
+  50% {
+    background-size: 10px 30px, 30px 30px, 30px 10px, 10px 10px
+  }
+
+  75% {
+    background-size: 10px 10px, 30px 10px, 30px 30px, 10px 30px
+  }
+
+  100% {
+    background-size: 30px 10px, 10px 10px, 10px 30px, 30px 30px
+  }
 }
