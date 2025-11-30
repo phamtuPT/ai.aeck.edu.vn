@@ -9,6 +9,9 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+    // Only handle GET requests
+    if (event.request.method !== 'GET') return;
+
     // Basic pass-through fetch
     event.respondWith(fetch(event.request));
 });
