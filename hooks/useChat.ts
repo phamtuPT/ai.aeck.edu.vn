@@ -19,6 +19,7 @@ export function useChat() {
     const [apiKey, setApiKey] = useState('');
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [conversationId, setConversationId] = useState<string | null>(null);
+    const [selectedMode, setSelectedMode] = useState<'general' | 'math' | 'reading' | 'science'>('general');
 
     const fetchConversations = (token: string) => {
         fetch('/api/conversations', {
@@ -275,7 +276,8 @@ export function useChat() {
                     message: promptToSend,
                     images: imagesToSend,
                     conversationId: conversationId,
-                    history: messages.slice(-10)
+                    history: messages.slice(-10),
+                    mode: selectedMode
                 }),
                 signal: abortControllerRef.current.signal
             });
@@ -373,6 +375,8 @@ export function useChat() {
         deleteConversation,
         handleRename,
         handleLogout,
-        stopGeneration
+        stopGeneration,
+        selectedMode,
+        setSelectedMode
     };
 }

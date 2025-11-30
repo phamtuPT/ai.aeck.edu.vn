@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 interface ChatInputProps {
     input: string;
@@ -11,6 +11,8 @@ interface ChatInputProps {
     loading: boolean;
     onPaste: (e: React.ClipboardEvent) => void;
     stopGeneration: () => void;
+    selectedMode: 'general' | 'math' | 'reading' | 'science';
+    setSelectedMode: (mode: 'general' | 'math' | 'reading' | 'science') => void;
 }
 
 export default function ChatInput({
@@ -23,8 +25,34 @@ export default function ChatInput({
     onRemoveImage,
     loading,
     onPaste,
-    stopGeneration
+    stopGeneration,
+    selectedMode,
+    setSelectedMode
 }: ChatInputProps) {
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsDropdownOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
+    const modes = [
+        { id: 'general', label: 'Tổng quan', description: 'Trả lời nhanh và đa dụng' },
+        { id: 'math', label: 'Tư duy Toán học', description: 'Giải toán chi tiết, step-by-step' },
+        { id: 'reading', label: 'Tư duy Đọc hiểu', description: 'Phân tích văn bản sâu sắc' },
+        { id: 'science', label: 'Tư duy Khoa học', description: 'Lý giải hiện tượng tự nhiên' }
+    ];
+
+    const currentModeLabel = modes.find(m => m.id === selectedMode)?.label || 'Tổng quan';
+
     return (
         <div className="absolute bottom-0 left-0 right-0 p-2 md:p-4 z-10 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent pb-4 md:pb-6 pt-6 md:pt-10">
             <div className="max-w-[800px] mx-auto relative">
@@ -46,6 +74,7 @@ export default function ChatInput({
                                 ))}
                             </div>
                         )}
+
                         <div className="flex items-end px-2 py-2 gap-2">
                             <button
                                 type="button"
@@ -82,6 +111,57 @@ export default function ChatInput({
                                 rows={1}
                                 style={{ height: 'auto', minHeight: '48px' }}
                             />
+
+                            {/* Mode Selector Dropdown */}
+                            <div className="relative pb-1" ref={dropdownRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                    className="flex items-center gap-1 text-sm font-medium text-gray-300 hover:text-white transition-colors bg-[#2a2b2d] hover:bg-[#353638] px-3 py-2 rounded-lg border border-white/5"
+                                >
+                                    {currentModeLabel}
+                                    <svg className={`w-4 h-4 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+
+                                {isDropdownOpen && (
+                                    <div className="absolute bottom-full right-0 mb-2 w-72 bg-[#1e1f20] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 backdrop-blur-xl p-2">
+                                        <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                                            Choose your mode
+                                        </div>
+                                        {modes.map((mode) => (
+                                            <button
+                                                key={mode.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedMode(mode.id as any);
+                                                    setIsDropdownOpen(false);
+                                                }}
+                                                className={`w-full text-left px-3 py-3 rounded-xl transition-all flex items-center justify-between group ${selectedMode === mode.id ? 'bg-[#2a2b2d]' : 'hover:bg-white/5'
+                                                    }`}
+                                            >
+                                                <div>
+                                                    <div className={`text-sm font-medium ${selectedMode === mode.id ? 'text-white' : 'text-gray-200'}`}>
+                                                        {mode.label}
+                                                    </div>
+                                                    <div className="text-xs text-gray-400 mt-0.5">
+                                                        {mode.description}
+                                                    </div>
+                                                </div>
+                                                {selectedMode === mode.id && (
+                                                    <div className="text-blue-400 bg-blue-400/10 p-1 rounded-full">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="pb-1 pr-1">
                                 {loading ? (
                                     <button

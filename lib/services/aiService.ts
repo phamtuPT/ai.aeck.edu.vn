@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import { SYSTEM_INSTRUCTION } from '@/lib/prompts';
+import { SYSTEM_INSTRUCTION, MATH_PROMPT, READING_PROMPT, SCIENCE_PROMPT } from '@/lib/prompts';
 import { ContextItem } from '@/types/chat';
 
 export interface GenerateStreamParams {
@@ -8,6 +8,7 @@ export interface GenerateStreamParams {
     history: any[];
     images: string[];
     context: ContextItem[];
+    mode?: 'general' | 'math' | 'reading' | 'science';
 }
 
 export async function generateStream({
@@ -15,9 +16,28 @@ export async function generateStream({
     message,
     history,
     images,
-    context
+    context,
+    mode = 'general'
 }: GenerateStreamParams) {
     const ai = new GoogleGenAI({ apiKey });
+
+    // Select system instruction based on mode
+    let systemInstructionText = SYSTEM_INSTRUCTION;
+    switch (mode) {
+        case 'math':
+            systemInstructionText = MATH_PROMPT;
+            break;
+        case 'reading':
+            systemInstructionText = READING_PROMPT;
+            break;
+        case 'science':
+            systemInstructionText = SCIENCE_PROMPT;
+            break;
+        case 'general':
+        default:
+            systemInstructionText = SYSTEM_INSTRUCTION;
+            break;
+    }
 
     // Format context for the AI
     let contextText = '';
@@ -82,7 +102,7 @@ export async function generateStream({
         contents: contents,
         config: {
             systemInstruction: {
-                parts: [{ text: SYSTEM_INSTRUCTION }]
+                parts: [{ text: systemInstructionText }]
             },
             maxOutputTokens: 2000,
         }

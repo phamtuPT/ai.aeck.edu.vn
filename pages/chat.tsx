@@ -39,7 +39,9 @@ export default function ChatPage() {
         deleteConversation,
         handleRename,
         handleLogout,
-        stopGeneration
+        stopGeneration,
+        selectedMode,
+        setSelectedMode
     } = useChat();
 
     const onNewChat = () => {
@@ -117,6 +119,8 @@ export default function ChatPage() {
                     loading={loading}
                     onPaste={handlePaste}
                     stopGeneration={stopGeneration}
+                    selectedMode={selectedMode}
+                    setSelectedMode={setSelectedMode}
                 />
             </main>
         </div>

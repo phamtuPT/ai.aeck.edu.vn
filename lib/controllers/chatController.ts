@@ -11,7 +11,8 @@ const chatRequestSchema = z.object({
     message: z.string().min(1, "Message cannot be empty"),
     history: z.array(z.any()).optional(), // Refine this type if possible
     images: z.array(z.string()).optional(),
-    conversationId: z.string().optional().nullable()
+    conversationId: z.string().optional().nullable(),
+    mode: z.enum(['general', 'math', 'reading', 'science']).optional()
 });
 
 export async function handleChatRequest(req: NextApiRequest, res: NextApiResponse) {
@@ -37,7 +38,7 @@ export async function handleChatRequest(req: NextApiRequest, res: NextApiRespons
         return res.status(400).json({ error: 'Invalid input', details: validation.error.format() });
     }
 
-    const { message, history, images, conversationId } = validation.data;
+    const { message, history, images, conversationId, mode } = validation.data;
 
     try {
         // 1. Validate Session
@@ -84,7 +85,8 @@ export async function handleChatRequest(req: NextApiRequest, res: NextApiRespons
             message,
             history: history || [],
             images: images || [],
-            context: contextItems
+            context: contextItems,
+            mode: mode as any
         });
 
         // 5. Stream Response & Accumulate
