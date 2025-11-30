@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import ChatSidebar from '@/components/chat/ChatSidebar';
@@ -57,8 +57,39 @@ export default function ChatPage() {
         if (window.innerWidth < 768) setSidebarOpen(false);
     };
 
+    const touchStart = useRef<number | null>(null);
+    const touchEnd = useRef<number | null>(null);
+
+    const onTouchStart = (e: React.TouchEvent) => {
+        touchEnd.current = null;
+        touchStart.current = e.targetTouches[0].clientX;
+    };
+
+    const onTouchMove = (e: React.TouchEvent) => {
+        touchEnd.current = e.targetTouches[0].clientX;
+    };
+
+    const onTouchEnd = () => {
+        if (!touchStart.current || !touchEnd.current) return;
+        const distance = touchStart.current - touchEnd.current;
+        const isLeftSwipe = distance > 50;
+        const isRightSwipe = distance < -50;
+
+        if (isLeftSwipe && sidebarOpen && window.innerWidth < 768) {
+            setSidebarOpen(false);
+        }
+        if (isRightSwipe && !sidebarOpen && window.innerWidth < 768) {
+            setSidebarOpen(true);
+        }
+    };
+
     return (
-        <div className="flex h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden relative selection:bg-white/20">
+        <div
+            className="flex h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden relative selection:bg-white/20"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+        >
             <Head>
                 <title>Trợ giảng AI</title>
                 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
