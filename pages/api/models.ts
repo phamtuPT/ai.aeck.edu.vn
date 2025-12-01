@@ -4,6 +4,15 @@ export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
+    // Handle CORS preflight
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
+    if (req.method !== 'GET') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
     // Prioritize key from query param (client-side check), then header, then env
     const apiKey = (req.query.key as string) || req.headers['x-user-api-key'] || process.env.GEMINI_API_KEY;
 

@@ -22,6 +22,12 @@ const chatRequestSchema = z.object({
 
 export async function handleChatRequest(req: NextApiRequest, res: NextApiResponse) {
     console.log(`[Chat Request] Method: ${req.method}, URL: ${req.url}`);
+
+    // Handle CORS preflight
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
     if (req.method !== 'POST') {
         console.log(`[Chat Request] 405 Error. Headers:`, JSON.stringify(req.headers));
         return res.status(405).json({ error: `Method not allowed. Received: ${req.method}, Expected: POST` });
