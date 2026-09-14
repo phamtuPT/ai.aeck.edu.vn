@@ -1,17 +1,16 @@
 import type { AIProvider } from './types';
 import type { ProviderId } from './models';
-import { geminiProvider } from './providers/gemini';
-import { openaiProvider } from './providers/openai';
-import { anthropicProvider } from './providers/anthropic';
 
-const providers: Record<ProviderId, AIProvider> = {
-    gemini: geminiProvider,
-    openai: openaiProvider,
-    anthropic: anthropicProvider,
+// Nạp SDK của từng hãng khi cần: SDK của một hãng lỗi (vd: sai phiên bản Node)
+// sẽ chỉ báo lỗi cho hãng đó thay vì làm sập cả route.
+const loaders: Record<ProviderId, () => Promise<AIProvider>> = {
+    gemini: () => import('./providers/gemini').then(m => m.geminiProvider),
+    openai: () => import('./providers/openai').then(m => m.openaiProvider),
+    anthropic: () => import('./providers/anthropic').then(m => m.anthropicProvider),
 };
 
-export function getProvider(id: ProviderId): AIProvider {
-    return providers[id];
+export function getProvider(id: ProviderId): Promise<AIProvider> {
+    return loaders[id]();
 }
 
 /** Rút gọn lỗi từ SDK thành thông báo an toàn để hiển thị cho người dùng. */

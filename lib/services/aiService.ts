@@ -27,7 +27,7 @@ const MODE_PROMPTS: Record<ChatMode, string> = {
 // Đủ chỗ cho lời giải toán nhiều bước và cho token suy luận của các mô hình thinking.
 const MAX_OUTPUT_TOKENS = 16000;
 
-export function generateStream({
+export async function* generateStream({
     apiKey,
     model,
     message,
@@ -36,7 +36,7 @@ export function generateStream({
     context,
     mode = 'general',
     signal,
-}: GenerateStreamParams): AsyncIterable<string> {
+}: GenerateStreamParams): AsyncGenerator<string> {
     let contextText = '';
     if (context && context.length > 0) {
         contextText = "\n\nThông tin tham khảo từ cơ sở dữ liệu (Sử dụng thông tin này để trả lời và trích dẫn nguồn):\n";
@@ -52,7 +52,8 @@ export function generateStream({
         { role: 'user', text: message + contextText, images: model.supportsImages ? images : [] },
     ];
 
-    return getProvider(model.provider).streamChat({
+    const provider = await getProvider(model.provider);
+    yield* provider.streamChat({
         apiKey,
         model: model.id,
         system: MODE_PROMPTS[mode] || SYSTEM_INSTRUCTION,

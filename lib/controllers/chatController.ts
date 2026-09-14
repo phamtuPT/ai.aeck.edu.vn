@@ -166,7 +166,7 @@ export async function handleChatRequest(req: NextApiRequest, res: NextApiRespons
         try {
             first = await iterator.next();
         } catch (e) {
-            console.error(`[Chat] ${model.id} failed before streaming:`, (e as Error).message);
+            console.error(`[Chat] ${model.id} failed before streaming:`, e);
             if (isNew) {
                 await conversationsCollection.deleteOne({ _id: finalConversationId as any, userId });
             }
@@ -227,7 +227,7 @@ export async function handleChatRequest(req: NextApiRequest, res: NextApiRespons
 
         res.end();
     } catch (error: any) {
-        console.error('Chat error:', error?.message || error);
+        console.error('Chat error:', error);
         if (!res.headersSent) {
             res.status(500).json({ error: 'Failed to generate response' });
         } else {

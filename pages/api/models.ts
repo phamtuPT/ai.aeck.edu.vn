@@ -40,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-        const available = await getProvider(provider).listModels(apiKey);
+        const available = await (await getProvider(provider)).listModels(apiKey);
         // Một số hãng trả về id có hậu tố ngày (vd: claude-haiku-4-5-20251001) cho alias.
         const isAvailable = (id: string) => available.some(a => a === id || a.startsWith(`${id}-20`));
         const supported = MODELS

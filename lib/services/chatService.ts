@@ -88,7 +88,8 @@ export async function ensureConversation(
 
 export async function generateTitle(ai: AIContext, message: string): Promise<string | null> {
     try {
-        const title = await getProvider(ai.provider).generateText({
+        const provider = await getProvider(ai.provider);
+        const title = await provider.generateText({
             apiKey: ai.apiKey,
             model: PROVIDERS[ai.provider].utilityModel,
             prompt: TITLE_GENERATION_PROMPT(message),
@@ -148,7 +149,8 @@ export async function getSmartHistory(
         const toSummarize = messages.slice(0, messages.length - KEEP_AFTER_SUMMARY);
         const transcript = toSummarize.map(m => `${m.role === 'ai' ? 'Trợ giảng' : 'Học sinh'}: ${m.content}`).join('\n');
         try {
-            const newSummary = await getProvider(ai.provider).generateText({
+            const provider = await getProvider(ai.provider);
+            const newSummary = await provider.generateText({
                 apiKey: ai.apiKey,
                 model: PROVIDERS[ai.provider].utilityModel,
                 prompt: `Tóm tắt ngắn gọn cuộc trò chuyện sau, giữ lại các dữ kiện, công thức và kết luận quan trọng.\n\n${summary ? `Tóm tắt trước đó:\n${summary}\n\n` : ''}Nội dung mới:\n${transcript}`,

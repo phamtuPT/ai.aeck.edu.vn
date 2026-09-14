@@ -471,9 +471,11 @@ export function useChat() {
                         router.push('/settings');
                         throw new Error(data.error === 'API Key is missing' ? 'Chưa có API Key' : data.error);
                     }
-                    throw new Error(data.error || text || `Error ${response.status}`);
+                    throw new Error(data.error || `Lỗi máy chủ (${response.status})`);
                 } else {
-                    throw new Error(text || `Error ${response.status}: ${response.statusText}`);
+                    // Phản hồi không phải JSON (vd: trang lỗi HTML của Next.js/Vercel) — không hiển thị nguyên văn.
+                    console.error(`Chat API ${response.status}:`, text.slice(0, 500));
+                    throw new Error(`Máy chủ gặp lỗi (${response.status}). Vui lòng thử lại sau.`);
                 }
             }
             if (!response.body) throw new Error('No response body');
