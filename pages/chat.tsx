@@ -27,8 +27,7 @@ export default function ChatPage() {
         scrollContainerRef,
         handleScroll,
         user,
-        apiKey,
-        setApiKey,
+        apiKeys,
         conversations,
         conversationId,
         handleSendMessage,
@@ -44,7 +43,9 @@ export default function ChatPage() {
         handleLogout,
         stopGeneration,
         selectedMode,
-        setSelectedMode
+        setSelectedMode,
+        selectedModel,
+        setSelectedModel
     } = useChat();
 
     const onNewChat = () => {
@@ -158,6 +159,9 @@ export default function ChatPage() {
                     stopGeneration={stopGeneration}
                     selectedMode={selectedMode}
                     setSelectedMode={setSelectedMode}
+                    selectedModel={selectedModel}
+                    setSelectedModel={setSelectedModel}
+                    apiKeys={apiKeys}
                 />
             </main>
         </div>

@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { clientChatbotPromise } from '@/lib/mongodb';
+import { escapeRegex } from '@/lib/utils/regex';
 
 export default async function handler(
     req: NextApiRequest,
@@ -23,6 +24,7 @@ export default async function handler(
     if (!q || typeof q !== 'string') {
         return res.status(400).json({ error: 'Missing query' });
     }
+    const pattern = escapeRegex(q.trim().slice(0, 200));
 
     try {
         const clientChatbot = await clientChatbotPromise;
@@ -44,7 +46,7 @@ export default async function handler(
         const matchedConversations = await conversationsCollection
             .find({
                 userId: session.userId,
-                title: { $regex: q, $options: 'i' }
+                title: { $regex: pattern, $options: 'i' }
             })
             .project({ _id: 1, title: 1, updatedAt: 1 })
             .limit(5)
@@ -54,7 +56,7 @@ export default async function handler(
         const matchedMessages = await historyCollection
             .find({
                 userId: session.userId,
-                content: { $regex: q, $options: 'i' }
+                content: { $regex: pattern, $options: 'i' }
             })
             .project({ conversationId: 1, content: 1, createdAt: 1 })
             .sort({ createdAt: -1 })
@@ -84,7 +86,7 @@ export default async function handler(
                 type: 'message',
                 id: m.conversationId,
                 title: conversationMap.get(m.conversationId)?.title || 'Unknown Conversation',
-                match: m.content.substring(0, 100) + '...',
+                match: String(m.content || '').substring(0, 100) + '...',
                 date: m.createdAt
             }))
         ];

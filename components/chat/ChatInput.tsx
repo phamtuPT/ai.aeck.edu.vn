@@ -1,4 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
+import { MODELS, PROVIDERS, getModel, type ProviderId } from '@/lib/ai/models';
+
+const PROVIDER_ORDER: ProviderId[] = ['gemini', 'openai', 'anthropic'];
 
 interface ChatInputProps {
     input: string;
@@ -13,6 +17,9 @@ interface ChatInputProps {
     stopGeneration: () => void;
     selectedMode: 'general' | 'math' | 'reading' | 'science';
     setSelectedMode: (mode: 'general' | 'math' | 'reading' | 'science') => void;
+    selectedModel: string;
+    setSelectedModel: (id: string) => void;
+    apiKeys: Record<ProviderId, string>;
 }
 
 export default function ChatInput({
@@ -27,16 +34,24 @@ export default function ChatInput({
     onPaste,
     stopGeneration,
     selectedMode,
-    setSelectedMode
+    setSelectedMode,
+    selectedModel,
+    setSelectedModel,
+    apiKeys
 }: ChatInputProps) {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+    const modelMenuRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsDropdownOpen(false);
+            }
+            if (modelMenuRef.current && !modelMenuRef.current.contains(event.target as Node)) {
+                setIsModelMenuOpen(false);
             }
         }
         document.addEventListener("mousedown", handleClickOutside);
@@ -53,6 +68,7 @@ export default function ChatInput({
     ];
 
     const currentModeLabel = modes.find(m => m.id === selectedMode)?.label || 'Tổng quan';
+    const currentModel = getModel(selectedModel);
 
     return (
         <div className="absolute bottom-0 left-0 right-0 p-2 md:p-4 z-10 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent pb-2 md:pb-6 pt-4 md:pt-10">
@@ -131,15 +147,60 @@ export default function ChatInput({
                                     className="hidden"
                                 />
 
-                                {/* Placeholder Tools Button */}
-                                <button
-                                    type="button"
-                                    className="flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors text-sm font-medium"
-                                    title="Công cụ (Sắp ra mắt)"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                    <span className="hidden sm:inline">Công cụ</span>
-                                </button>
+                                {/* Model Selector */}
+                                <div className="relative" ref={modelMenuRef}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
+                                        className="flex items-center gap-1.5 px-3 py-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-full transition-colors text-sm font-medium max-w-[150px] sm:max-w-none"
+                                        title="Chọn mô hình AI"
+                                    >
+                                        <span className="truncate">{currentModel?.label || 'Chọn mô hình'}</span>
+                                        <svg className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${isModelMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+
+                                    {isModelMenuOpen && (
+                                        <div className="absolute bottom-full left-0 mb-2 w-[min(20rem,calc(100vw-2rem))] max-h-[60vh] overflow-y-auto custom-scrollbar bg-[#1e1f20] border border-white/10 rounded-2xl shadow-2xl z-50 backdrop-blur-xl p-2">
+                                            {PROVIDER_ORDER.map(providerId => {
+                                                const hasKey = !!apiKeys[providerId];
+                                                return (
+                                                    <div key={providerId} className="mb-1 last:mb-0">
+                                                        <div className="px-3 pt-2 pb-1 flex items-center justify-between">
+                                                            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">{PROVIDERS[providerId].label}</span>
+                                                            {!hasKey && (
+                                                                <Link href="/settings" className="text-[11px] text-blue-400 hover:underline">Thêm key</Link>
+                                                            )}
+                                                        </div>
+                                                        {MODELS.filter(m => m.provider === providerId).map(model => (
+                                                            <button
+                                                                key={model.id}
+                                                                type="button"
+                                                                disabled={!hasKey}
+                                                                onClick={() => {
+                                                                    setSelectedModel(model.id);
+                                                                    setIsModelMenuOpen(false);
+                                                                }}
+                                                                className={`w-full text-left px-3 py-2 rounded-xl transition-all flex items-center justify-between gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${selectedModel === model.id ? 'bg-[#2a2b2d]' : 'hover:bg-white/5'}`}
+                                                            >
+                                                                <div className="min-w-0">
+                                                                    <div className="text-sm font-medium text-gray-100 truncate">{model.label}</div>
+                                                                    <div className="text-xs text-gray-400 truncate">{model.description}</div>
+                                                                </div>
+                                                                {selectedModel === model.id && (
+                                                                    <svg className="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                                                    </svg>
+                                                                )}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Right Actions */}
@@ -160,7 +221,7 @@ export default function ChatInput({
                                     {isDropdownOpen && (
                                         <div className="absolute bottom-full right-0 mb-2 w-72 bg-[#1e1f20] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 backdrop-blur-xl p-2">
                                             <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                                                Chọn mô hình
+                                                Chế độ trả lời
                                             </div>
                                             {modes.map((mode) => (
                                                 <button

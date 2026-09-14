@@ -3,6 +3,7 @@ import clientPromise, { clientChatbotPromise } from '@/lib/mongodb';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { ObjectId } from 'mongodb';
+import { rateLimit } from '@/lib/rateLimit';
 
 export default async function handler(
     req: NextApiRequest,
@@ -19,8 +20,15 @@ export default async function handler(
 
     const { username, password } = req.body;
 
-    if (!username || !password) {
+    // Chỉ nhận chuỗi để tránh NoSQL injection kiểu { "$ne": null }.
+    if (typeof username !== 'string' || typeof password !== 'string' || !username || !password) {
         return res.status(400).json({ error: 'Username/Email và password là bắt buộc' });
+    }
+
+    const forwardedFor = req.headers['x-forwarded-for'];
+    const ip = (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+    if (!rateLimit(`login:${ip}:${username.toLowerCase()}`, 10, 15 * 60 * 1000)) {
+        return res.status(429).json({ error: 'Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.' });
     }
 
     try {
@@ -43,7 +51,9 @@ export default async function handler(
 
         // Verify password
         let isPasswordValid = false;
-        if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
+        if (typeof user.password !== 'string') {
+            isPasswordValid = false;
+        } else if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
             isPasswordValid = bcrypt.compareSync(password, user.password);
         } else {
             isPasswordValid = user.password === password;
@@ -94,9 +104,6 @@ export default async function handler(
 
     } catch (error) {
         console.error('Login error:', error);
-        return res.status(500).json({
-            error: 'Lỗi hệ thống',
-            details: error instanceof Error ? error.message : 'Unknown error'
-        });
+        return res.status(500).json({ error: 'Lỗi hệ thống' });
     }
 }

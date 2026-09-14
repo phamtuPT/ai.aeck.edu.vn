@@ -1,45 +1,42 @@
-import { GoogleGenAI } from '@google/genai';
 import { SYSTEM_INSTRUCTION, MATH_PROMPT, READING_PROMPT, SCIENCE_PROMPT } from '@/lib/prompts';
 import { ContextItem } from '@/types/chat';
+import { getProvider } from '@/lib/ai';
+import type { ModelInfo } from '@/lib/ai/models';
+import type { ChatImage, ChatTurn } from '@/lib/ai/types';
+
+export type ChatMode = 'general' | 'math' | 'reading' | 'science';
 
 export interface GenerateStreamParams {
     apiKey: string;
+    model: ModelInfo;
     message: string;
-    history: any[];
-    images: string[];
+    history: ChatTurn[];
+    images: ChatImage[];
     context: ContextItem[];
-    mode?: 'general' | 'math' | 'reading' | 'science';
+    mode?: ChatMode;
+    signal?: AbortSignal;
 }
 
-export async function generateStream({
+const MODE_PROMPTS: Record<ChatMode, string> = {
+    general: SYSTEM_INSTRUCTION,
+    math: MATH_PROMPT,
+    reading: READING_PROMPT,
+    science: SCIENCE_PROMPT,
+};
+
+// Đủ chỗ cho lời giải toán nhiều bước và cho token suy luận của các mô hình thinking.
+const MAX_OUTPUT_TOKENS = 16000;
+
+export function generateStream({
     apiKey,
+    model,
     message,
     history,
     images,
     context,
-    mode = 'general'
-}: GenerateStreamParams) {
-    const ai = new GoogleGenAI({ apiKey });
-
-    // Select system instruction based on mode
-    let systemInstructionText = SYSTEM_INSTRUCTION;
-    switch (mode) {
-        case 'math':
-            systemInstructionText = MATH_PROMPT;
-            break;
-        case 'reading':
-            systemInstructionText = READING_PROMPT;
-            break;
-        case 'science':
-            systemInstructionText = SCIENCE_PROMPT;
-            break;
-        case 'general':
-        default:
-            systemInstructionText = SYSTEM_INSTRUCTION;
-            break;
-    }
-
-    // Format context for the AI
+    mode = 'general',
+    signal,
+}: GenerateStreamParams): AsyncIterable<string> {
     let contextText = '';
     if (context && context.length > 0) {
         contextText = "\n\nThông tin tham khảo từ cơ sở dữ liệu (Sử dụng thông tin này để trả lời và trích dẫn nguồn):\n";
@@ -50,45 +47,17 @@ export async function generateStream({
         });
     }
 
-    // Construct contents for Gemini
-    const contents: any[] = [];
+    const messages: ChatTurn[] = [
+        ...history,
+        { role: 'user', text: message + contextText, images: model.supportsImages ? images : [] },
+    ];
 
-    // Add history
-    if (history && Array.isArray(history)) {
-        contents.push(...history);
-    }
-
-    // Add current message with context
-    const currentParts: any[] = [{ text: message + contextText }]; // Inject context
-    if (images && Array.isArray(images)) {
-        images.forEach((img: string) => {
-            // Robust regex to handle various data URI formats (e.g. with or without charset)
-            const match = img.match(/^data:([^;]+);(?:charset=[^;]+;)?base64,(.*)$/);
-            if (match) {
-                currentParts.push({
-                    inlineData: {
-                        mimeType: match[1],
-                        data: match[2]
-                    }
-                });
-            }
-        });
-    }
-    contents.push({
-        role: 'user',
-        parts: currentParts
+    return getProvider(model.provider).streamChat({
+        apiKey,
+        model: model.id,
+        system: MODE_PROMPTS[mode] || SYSTEM_INSTRUCTION,
+        messages,
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+        signal,
     });
-
-    const result = await ai.models.generateContentStream({
-        model: 'gemini-2.5-flash',
-        contents: contents,
-        config: {
-            systemInstruction: {
-                parts: [{ text: systemInstructionText }]
-            },
-            maxOutputTokens: 2000,
-        }
-    });
-
-    return { result, aiClient: ai };
 }

@@ -2,58 +2,162 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { toast } from 'sonner';
+import { API_KEY_STORAGE, PROVIDERS, type ProviderId } from '@/lib/ai/models';
 
-export default function SettingsPage() {
-    const router = useRouter();
+const PROVIDER_ORDER: ProviderId[] = ['gemini', 'openai', 'anthropic'];
+
+interface SupportedModel {
+    id: string;
+    label: string;
+    available: boolean;
+}
+
+function ProviderKeyCard({ providerId }: { providerId: ProviderId }) {
+    const provider = PROVIDERS[providerId];
+    const storageKey = API_KEY_STORAGE[providerId];
     const [apiKey, setApiKey] = useState('');
-    const [user, setUser] = useState<any>(null);
-    const [models, setModels] = useState<any[]>([]);
-    const [showModels, setShowModels] = useState(false);
-    const [isLoadingModels, setIsLoadingModels] = useState(false);
+    const [savedKey, setSavedKey] = useState('');
+    const [checking, setChecking] = useState(false);
+    const [supported, setSupported] = useState<SupportedModel[] | null>(null);
 
     useEffect(() => {
-        const storedKey = localStorage.getItem('user_gemini_api_key');
-        if (storedKey) setApiKey(storedKey);
-
-        const userData = localStorage.getItem('chatbot_user');
-        if (userData) setUser(JSON.parse(userData));
-    }, []);
+        const stored = localStorage.getItem(storageKey) || '';
+        setApiKey(stored);
+        setSavedKey(stored);
+    }, [storageKey]);
 
     const handleSave = () => {
-        if (!apiKey.trim()) {
+        const trimmed = apiKey.trim();
+        if (!trimmed) {
             toast.error('API Key không được để trống');
             return;
         }
-        localStorage.setItem('user_gemini_api_key', apiKey.trim());
-        toast.success('Đã lưu API Key');
+        localStorage.setItem(storageKey, trimmed);
+        setSavedKey(trimmed);
+        toast.success(`Đã lưu API Key ${provider.label}`);
     };
 
     const handleRemove = () => {
-        localStorage.removeItem('user_gemini_api_key');
+        localStorage.removeItem(storageKey);
         setApiKey('');
-        toast.success('Đã xóa API Key');
+        setSavedKey('');
+        setSupported(null);
+        toast.success(`Đã xóa API Key ${provider.label}`);
     };
 
-    const fetchModels = async () => {
-        if (!apiKey) return;
-        setIsLoadingModels(true);
-        const toastId = toast.loading('Đang tải danh sách model...');
+    const handleCheck = async () => {
+        const trimmed = apiKey.trim();
+        if (!trimmed) return;
+        setChecking(true);
+        const toastId = toast.loading('Đang kiểm tra API Key...');
         try {
-            const res = await fetch(`/api/models?key=${apiKey}`);
+            const res = await fetch('/api/models', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-user-api-key': trimmed },
+                body: JSON.stringify({ provider: providerId }),
+            });
             const data = await res.json();
-            if (res.ok && data.models) {
-                setModels(data.models);
-                setShowModels(true);
-                toast.success('Đã tải danh sách model', { id: toastId });
+            if (res.ok) {
+                setSupported(data.supported || []);
+                toast.success('API Key hoạt động tốt!', { id: toastId });
             } else {
-                toast.error(`Lỗi: ${data.error || 'Không thể tải model'}`, { id: toastId });
+                setSupported(null);
+                toast.error(`Lỗi: ${data.error || 'Key không hợp lệ'}`, { id: toastId });
             }
-        } catch (error) {
+        } catch {
             toast.error('Lỗi kết nối', { id: toastId });
         } finally {
-            setIsLoadingModels(false);
+            setChecking(false);
         }
     };
+
+    const isDirty = apiKey.trim() !== savedKey;
+
+    return (
+        <div className="bg-[#1e1f20] rounded-2xl p-6 border border-white/10">
+            <div className="flex items-center justify-between gap-3 mb-3">
+                <h2 className="text-lg font-semibold">{provider.label}</h2>
+                {savedKey ? (
+                    <span className="text-xs bg-green-500/10 text-green-400 px-2 py-1 rounded-lg border border-green-500/20">Đã lưu key</span>
+                ) : (
+                    <span className="text-xs bg-white/5 text-gray-400 px-2 py-1 rounded-lg border border-white/10">Chưa có key</span>
+                )}
+            </div>
+            <p className="text-sm text-gray-400 mb-4">
+                Lấy API Key tại{' '}
+                <a href={provider.keyUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline break-all">
+                    {provider.keyUrl.replace(/^https:\/\//, '')}
+                </a>
+            </p>
+
+            <div className="space-y-4">
+                <input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder={provider.keyPlaceholder}
+                    autoComplete="off"
+                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-white/30 focus:ring-0 outline-none transition-all"
+                />
+
+                <div className="flex gap-3 flex-wrap">
+                    <button
+                        onClick={handleSave}
+                        disabled={!isDirty}
+                        className="px-5 py-2.5 bg-white text-black font-semibold rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-40"
+                    >
+                        Lưu
+                    </button>
+                    {apiKey && (
+                        <button
+                            onClick={handleCheck}
+                            disabled={checking}
+                            className="px-5 py-2.5 bg-blue-500/10 text-blue-400 font-semibold rounded-xl hover:bg-blue-500/20 transition-colors border border-blue-500/20 disabled:opacity-50"
+                        >
+                            Kiểm tra key
+                        </button>
+                    )}
+                    {savedKey && (
+                        <button
+                            onClick={handleRemove}
+                            className="px-5 py-2.5 bg-red-500/10 text-red-400 font-semibold rounded-xl hover:bg-red-500/20 transition-colors border border-red-500/20"
+                        >
+                            Xóa key
+                        </button>
+                    )}
+                </div>
+
+                {supported && (
+                    <div className="space-y-1.5 pt-2">
+                        <p className="text-xs text-gray-500 uppercase font-semibold">Mô hình trong hệ thống</p>
+                        {supported.map(m => (
+                            <div key={m.id} className="flex items-center justify-between gap-3 px-3 py-2 bg-black/20 rounded-xl border border-white/5">
+                                <div className="min-w-0">
+                                    <div className="text-sm text-gray-200">{m.label}</div>
+                                    <div className="text-xs text-gray-500 font-mono truncate">{m.id}</div>
+                                </div>
+                                {m.available ? (
+                                    <span className="text-xs text-green-400 flex-shrink-0">Dùng được</span>
+                                ) : (
+                                    <span className="text-xs text-yellow-400 flex-shrink-0">Key chưa có quyền</span>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+export default function SettingsPage() {
+    const router = useRouter();
+    const [user, setUser] = useState<any>(null);
+
+    useEffect(() => {
+        const userData = localStorage.getItem('chatbot_user');
+        if (userData) setUser(JSON.parse(userData));
+    }, []);
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-white/20">
@@ -99,103 +203,17 @@ export default function SettingsPage() {
                         )}
                     </div>
 
-                    {/* API Key Section */}
-                    <div className="bg-[#1e1f20] rounded-2xl p-6 border border-white/10">
-                        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                            <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
-                            Cấu hình API Key
-                        </h2>
-                        <p className="text-sm text-gray-400 mb-4">
-                            API Key của bạn được lưu trữ cục bộ trên trình duyệt và được sử dụng để kết nối với Google Gemini.
+                    {/* API Keys */}
+                    <div className="px-1">
+                        <h2 className="text-lg font-semibold mb-1">API Key</h2>
+                        <p className="text-sm text-gray-400">
+                            Nhập key của ít nhất một hãng để chat. Key chỉ được lưu trên trình duyệt này, được gửi kèm từng tin nhắn để gọi AI
+                            và không được lưu trên máy chủ. Chi phí sử dụng tính vào tài khoản của chính bạn tại hãng đó.
                         </p>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-1">Gemini API Key</label>
-                                <input
-                                    type="password"
-                                    value={apiKey}
-                                    onChange={(e) => setApiKey(e.target.value)}
-                                    placeholder="Nhập API Key của bạn..."
-                                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-white/30 focus:ring-0 outline-none transition-all"
-                                />
-                            </div>
-
-                            <div className="flex gap-3 flex-wrap">
-                                <button
-                                    onClick={handleSave}
-                                    className="px-6 py-2.5 bg-white text-black font-semibold rounded-xl hover:bg-gray-200 transition-colors"
-                                >
-                                    Lưu thay đổi
-                                </button>
-                                {apiKey && (
-                                    <>
-                                        <button
-                                            onClick={async () => {
-                                                const toastId = toast.loading('Đang kiểm tra API Key...');
-                                                try {
-                                                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash?key=${apiKey}`);
-                                                    const data = await res.json();
-                                                    if (res.ok) {
-                                                        toast.success('API Key hoạt động tốt!', { id: toastId });
-                                                    } else {
-                                                        toast.error(`Lỗi: ${data.error?.message || 'Key không hợp lệ'}`, { id: toastId });
-                                                    }
-                                                } catch (error) {
-                                                    toast.error('Không thể kết nối đến Google API', { id: toastId });
-                                                }
-                                            }}
-                                            className="px-6 py-2.5 bg-blue-500/10 text-blue-400 font-semibold rounded-xl hover:bg-blue-500/20 transition-colors border border-blue-500/20"
-                                        >
-                                            Kiểm tra Key
-                                        </button>
-                                        <button
-                                            onClick={fetchModels}
-                                            disabled={isLoadingModels}
-                                            className="px-6 py-2.5 bg-purple-500/10 text-purple-400 font-semibold rounded-xl hover:bg-purple-500/20 transition-colors border border-purple-500/20 disabled:opacity-50"
-                                        >
-                                            Danh sách Model
-                                        </button>
-                                        <button
-                                            onClick={handleRemove}
-                                            className="px-6 py-2.5 bg-red-500/10 text-red-400 font-semibold rounded-xl hover:bg-red-500/20 transition-colors border border-red-500/20"
-                                        >
-                                            Xóa Key
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-                        </div>
                     </div>
-
-                    {/* Models List Modal/Section */}
-                    {showModels && (
-                        <div className="bg-[#1e1f20] rounded-2xl p-6 border border-white/10 animate-in fade-in slide-in-from-bottom-4">
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-lg font-semibold flex items-center gap-2">
-                                    <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                                    Danh sách Model khả dụng
-                                </h2>
-                                <button onClick={() => setShowModels(false)} className="text-gray-400 hover:text-white">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                </button>
-                            </div>
-                            <div className="space-y-2 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
-                                {models.map((model: any) => (
-                                    <div key={model.name} className="p-3 bg-black/20 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <h3 className="font-medium text-purple-300">{model.displayName}</h3>
-                                                <p className="text-xs text-gray-500 mt-1 font-mono">{model.name}</p>
-                                            </div>
-                                            <span className="text-xs bg-white/10 px-2 py-1 rounded text-gray-300">{model.version}</span>
-                                        </div>
-                                        <p className="text-sm text-gray-400 mt-2 line-clamp-2">{model.description}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                    {PROVIDER_ORDER.map(id => (
+                        <ProviderKeyCard key={id} providerId={id} />
+                    ))}
                 </div>
             </div>
         </div>

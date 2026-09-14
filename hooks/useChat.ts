@@ -2,6 +2,15 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { ChatMessage, Conversation, User, ConversationsResponse, Attachment } from '../types/chat';
 import { toast } from 'sonner';
+import { API_KEY_STORAGE, DEFAULT_MODEL_ID, PROVIDERS, SELECTED_MODEL_STORAGE, getModel, type ProviderId } from '@/lib/ai/models';
+
+function readApiKeys(): Record<ProviderId, string> {
+    return {
+        gemini: localStorage.getItem(API_KEY_STORAGE.gemini) || '',
+        openai: localStorage.getItem(API_KEY_STORAGE.openai) || '',
+        anthropic: localStorage.getItem(API_KEY_STORAGE.anthropic) || '',
+    };
+}
 
 
 export function useChat() {
@@ -16,7 +25,8 @@ export function useChat() {
     const isAtBottomRef = useRef(true);
     const isSendingRef = useRef(false);
     const [user, setUser] = useState<User | null>(null);
-    const [apiKey, setApiKey] = useState('');
+    const [apiKeys, setApiKeys] = useState<Record<ProviderId, string>>({ gemini: '', openai: '', anthropic: '' });
+    const [selectedModel, setSelectedModelState] = useState<string>(DEFAULT_MODEL_ID);
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [conversationId, setConversationId] = useState<string | null>(null);
     const [isThinking, setIsThinking] = useState(false);
@@ -136,10 +146,12 @@ export function useChat() {
             setUser(JSON.parse(userData));
         }
 
-        const storedKey = localStorage.getItem('user_gemini_api_key');
-        if (storedKey) {
-            setApiKey(storedKey);
-        } else {
+        const keys = readApiKeys();
+        setApiKeys(keys);
+        const storedModel = localStorage.getItem(SELECTED_MODEL_STORAGE);
+        const model = getModel(storedModel) || getModel(DEFAULT_MODEL_ID)!;
+        setSelectedModelState(model.id);
+        if (!keys.gemini && !keys.openai && !keys.anthropic) {
             toast.info('Vui lòng nhập API Key để bắt đầu');
         }
 
@@ -236,16 +248,13 @@ export function useChat() {
 
     const handlePaste = (e: React.ClipboardEvent) => {
         const items = e.clipboardData.items;
-        console.log('Paste event detected, items:', items.length);
 
         for (let i = 0; i < items.length; i++) {
-            console.log(`Item ${i} type:`, items[i].type);
             if (items[i].type.indexOf('image') !== -1) {
                 e.preventDefault(); // Prevent default paste behavior for images
                 const blob = items[i].getAsFile();
                 const fileType = items[i].type; // Capture type synchronously
                 if (blob) {
-                    console.log('Processing pasted image');
                     const reader = new FileReader();
                     reader.onload = (event) => {
                         setAttachments(prev => [...prev, {
@@ -285,14 +294,23 @@ export function useChat() {
         }
     };
 
+    const setSelectedModel = (id: string) => {
+        if (!getModel(id)) return;
+        setSelectedModelState(id);
+        localStorage.setItem(SELECTED_MODEL_STORAGE, id);
+    };
+
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!input.trim() && attachments.length === 0) return;
 
-        // Check for API key again just in case
-        const currentApiKey = localStorage.getItem('user_gemini_api_key');
+        const model = getModel(selectedModel) || getModel(DEFAULT_MODEL_ID)!;
+        // Đọc lại key phòng khi người dùng vừa cập nhật ở trang Cài đặt (tab khác).
+        const keys = readApiKeys();
+        setApiKeys(keys);
+        const currentApiKey = keys[model.provider].trim();
         if (!currentApiKey) {
-            toast.error('Vui lòng nhập API Key để tiếp tục', {
+            toast.error(`Vui lòng nhập API Key ${PROVIDERS[model.provider].label} để dùng ${model.label}`, {
                 action: {
                     label: 'Cài đặt',
                     onClick: () => router.push('/settings')
@@ -300,7 +318,6 @@ export function useChat() {
             });
             return;
         }
-        if (currentApiKey !== apiKey) setApiKey(currentApiKey);
 
 
         const promptToSend = input.trim();
@@ -323,27 +340,29 @@ export function useChat() {
         try {
             setMessages(prev => [...prev, { role: 'ai', content: '' }]);
 
-            console.log('Sending request with API Key:', currentApiKey ? 'Present' : 'Missing');
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'x-user-api-key': currentApiKey
+            };
+            // Key Gemini giúp tìm kiếm tài liệu (embedding) khi đang chat bằng hãng khác.
+            if (model.provider !== 'gemini' && keys.gemini.trim()) {
+                headers['x-gemini-api-key'] = keys.gemini.trim();
+            }
 
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 cache: 'no-store',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'x-user-api-key': currentApiKey.trim()
-                },
+                headers,
                 body: JSON.stringify({
                     message: promptToSend,
                     attachments: attachmentsToSend,
                     conversationId: conversationId,
-                    history: messages.slice(-10),
-                    mode: selectedMode
+                    mode: selectedMode,
+                    model: model.id
                 }),
                 signal: abortControllerRef.current.signal
             });
-
-            fetchConversations(token!);
 
             if (!response.ok) {
                 const text = await response.text();
@@ -355,9 +374,9 @@ export function useChat() {
                 }
 
                 if (data) {
-                    if (response.status === 401 && data.error === 'API Key is missing') {
+                    if (response.status === 401 && (data.error === 'API Key is missing' || /API Key/.test(data.error || ''))) {
                         router.push('/settings');
-                        throw new Error('API Key missing or invalid');
+                        throw new Error(data.error === 'API Key is missing' ? 'Chưa có API Key' : data.error);
                     }
                     throw new Error(data.error || text || `Error ${response.status}`);
                 } else {
@@ -370,6 +389,7 @@ export function useChat() {
             if (newConversationId && !conversationId) {
                 setConversationId(newConversationId);
                 router.push(`/chat?id=${newConversationId}`, undefined, { shallow: true });
+                fetchConversations(token!);
             }
 
             const reader = response.body.getReader();
@@ -395,6 +415,9 @@ export function useChat() {
                     return newMessages;
                 });
             }
+
+            // Tiêu đề được tạo xong khi stream kết thúc.
+            fetchConversations(token!);
         } catch (error: any) {
             if (error.name === 'AbortError') {
                 console.log('Generation stopped by user');
@@ -437,8 +460,7 @@ export function useChat() {
         scrollContainerRef,
         handleScroll,
         user,
-        apiKey,
-        setApiKey,
+        apiKeys,
         conversations,
         conversationId,
         handleSendMessage,
@@ -454,6 +476,8 @@ export function useChat() {
         handleLogout,
         stopGeneration,
         selectedMode,
-        setSelectedMode
+        setSelectedMode,
+        selectedModel,
+        setSelectedModel
     };
 }

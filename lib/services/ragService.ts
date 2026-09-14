@@ -1,18 +1,28 @@
 import { Collection } from 'mongodb';
 import { ContextItem } from '@/types/chat';
+import { escapeRegex } from '@/lib/utils/regex';
+
+function buildKeywordRegex(message: string): RegExp | null {
+    const keywords = message
+        .split(/\s+/)
+        .filter((w: string) => w.length > 3)
+        .slice(0, 5)
+        .map(escapeRegex);
+    return keywords.length > 0 ? new RegExp(keywords.join('|'), 'i') : null;
+}
 
 export async function getContext(
     message: string,
-    apiKey: string,
+    geminiApiKey: string | null,
     examsCollection: Collection
 ): Promise<ContextItem[]> {
     let relevantExams: any[] = [];
 
     // Try Vector Search first
     try {
-        if (apiKey) {
+        if (geminiApiKey) {
             const { getEmbedding } = await import('@/lib/gemini');
-            const embedding = await getEmbedding(message, apiKey);
+            const embedding = await getEmbedding(message, geminiApiKey);
 
             if (embedding) {
                 relevantExams = await examsCollection.aggregate([
@@ -43,9 +53,8 @@ export async function getContext(
     // Fallback to Regex if Vector Search returned no results
     if (relevantExams.length === 0) {
         // Simple keyword search - split message into words and find matching exams
-        const keywords = message.split(' ').filter((w: string) => w.length > 3).slice(0, 5);
-        if (keywords.length > 0) {
-            const regex = new RegExp(keywords.join('|'), 'i');
+        const regex = buildKeywordRegex(message);
+        if (regex) {
             relevantExams = await examsCollection.find({
                 $or: [
                     { "questions.content": regex },
@@ -60,13 +69,13 @@ export async function getContext(
     if (relevantExams.length > 0) {
         relevantExams.forEach((exam: any) => {
             // Simplified: Take first 3 questions if vector search, or match regex if regex search
-            let matchingQuestions = exam.questions.slice(0, 3);
+            const questions = Array.isArray(exam.questions) ? exam.questions : [];
+            let matchingQuestions = questions.slice(0, 3);
 
             // If we have keywords, try to filter by them even for vector search results to be more precise
-            const keywords = message.split(' ').filter((w: string) => w.length > 3).slice(0, 5);
-            if (keywords.length > 0) {
-                const regex = new RegExp(keywords.join('|'), 'i');
-                const filtered = exam.questions.filter((q: any) =>
+            const regex = buildKeywordRegex(message);
+            if (regex) {
+                const filtered = questions.filter((q: any) =>
                     (q.content && regex.test(q.content)) || (q.explanation && regex.test(q.explanation))
                 );
                 if (filtered.length > 0) matchingQuestions = filtered.slice(0, 3);
