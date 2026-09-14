@@ -111,7 +111,7 @@ export async function handleChatRequest(req: NextApiRequest, res: NextApiRespons
         }
 
         // 3. Extract file content
-        let fullMessage = message;
+        let fileContext = '';
         const images: ChatImage[] = [];
         if (attachments && attachments.length > 0) {
             const fileContents = await Promise.all(attachments.map(async (file) => {
@@ -132,7 +132,7 @@ export async function handleChatRequest(req: NextApiRequest, res: NextApiRespons
                     return '';
                 }
             }));
-            fullMessage += fileContents.join('');
+            fileContext = fileContents.join('');
         }
 
         const ai: AIContext = { provider: model.provider, apiKey };
@@ -152,7 +152,7 @@ export async function handleChatRequest(req: NextApiRequest, res: NextApiRespons
         const stream = generateStream({
             apiKey,
             model,
-            message: fullMessage,
+            message: message + fileContext,
             history,
             images,
             context: contextItems,
@@ -180,8 +180,9 @@ export async function handleChatRequest(req: NextApiRequest, res: NextApiRespons
             historyCollection,
             userId,
             finalConversationId,
-            fullMessage,
-            attachments || []
+            message,
+            attachments || [],
+            fileContext
         );
 
         res.writeHead(200, {

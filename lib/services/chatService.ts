@@ -18,7 +18,8 @@ export async function saveUserMessage(
     userId: string,
     conversationId: string,
     message: string,
-    attachments: any[]
+    attachments: any[],
+    fileContext = ''
 ) {
     const userMsgId = new ObjectId();
     await historyCollection.insertOne({
@@ -27,6 +28,8 @@ export async function saveUserMessage(
         conversationId,
         role: 'user',
         content: message,
+        // Nội dung trích từ file đính kèm: gửi cho AI nhưng không hiển thị trong khung chat.
+        ...(fileContext ? { fileContext } : {}),
         attachments: attachments || [],
         createdAt: new Date()
     });
@@ -118,7 +121,7 @@ function toTurn(msg: any, includeImages: boolean): ChatTurn {
     }
     return {
         role: msg.role === 'ai' ? 'assistant' : 'user',
-        text: msg.content || '',
+        text: (msg.content || '') + (msg.fileContext || ''),
         images: urls.map(parseDataUrl).filter((img): img is NonNullable<typeof img> => img !== null),
     };
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { ChatMessage, Conversation, User, ConversationsResponse, Attachment } from '../types/chat';
 import { toast } from 'sonner';
@@ -12,6 +12,24 @@ function readApiKeys(): Record<ProviderId, string> {
     };
 }
 
+const HISTORY_PAGE_SIZE = 30;
+
+interface HistoryDoc {
+    _id?: string;
+    role: ChatMessage['role'];
+    content: string;
+    attachments?: Attachment[];
+    images?: string[];
+}
+
+function toChatMessage(msg: HistoryDoc): ChatMessage {
+    return {
+        id: msg._id ? String(msg._id) : undefined,
+        role: msg.role,
+        content: msg.content,
+        attachments: msg.attachments || (msg.images ? msg.images.map((img: string) => ({ type: 'image/png', url: img, name: 'Image' })) : [])
+    };
+}
 
 export function useChat() {
     const router = useRouter();
@@ -31,6 +49,14 @@ export function useChat() {
     const [conversationId, setConversationId] = useState<string | null>(null);
     const [isThinking, setIsThinking] = useState(false);
     const [selectedMode, setSelectedMode] = useState<'general' | 'math' | 'reading' | 'science'>('general');
+    const [hasMoreHistory, setHasMoreHistory] = useState(false);
+    const [loadingOlder, setLoadingOlder] = useState(false);
+    const historyCursorRef = useRef<string | null>(null);
+    const loadingOlderRef = useRef(false);
+    const pendingScrollRestoreRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
+    const conversationIdRef = useRef<string | null>(null);
+    const instantScrollRef = useRef(false);
+    conversationIdRef.current = conversationId;
 
     const fetchConversations = (token: string) => {
         fetch('/api/conversations', {
@@ -162,16 +188,37 @@ export function useChat() {
         }
     }, [router.isReady, router.query.id]);
 
+    const fetchHistoryPage = async (id: string, before?: string | null) => {
+        const token = localStorage.getItem('chatbot_token');
+        const params = new URLSearchParams({ conversationId: id, limit: String(HISTORY_PAGE_SIZE) });
+        if (before) params.set('before', before);
+
+        const res = await fetch(`/api/history?${params}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.status === 401) {
+            localStorage.removeItem('chatbot_token');
+            router.push('/');
+            throw new Error('Unauthorized');
+        }
+        if (!res.ok) throw new Error(`History error ${res.status}`);
+
+        const data = await res.json();
+        return {
+            messages: (data.history || []).map(toChatMessage) as ChatMessage[],
+            hasMore: Boolean(data.hasMore),
+            nextCursor: (data.nextCursor as string | null) ?? null
+        };
+    };
+
     useEffect(() => {
         const token = localStorage.getItem('chatbot_token');
         if (!token) return;
 
         if (isSendingRef.current) return;
 
-        setLoading(true);
-        const url = conversationId
-            ? `/api/history?conversationId=${conversationId}`
-            : '/api/history';
+        historyCursorRef.current = null;
+        setHasMoreHistory(false);
 
         if (!conversationId) {
             setMessages([]);
@@ -179,41 +226,84 @@ export function useChat() {
             return;
         }
 
-        fetch(url, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        })
-            .then(res => {
-                if (res.status === 401) {
-                    localStorage.removeItem('chatbot_token');
-                    router.push('/');
-                    throw new Error('Unauthorized');
-                }
-                return res.json();
-            })
-            .then(data => {
-                if (data.history) {
-                    setMessages(data.history.map((msg: any) => ({
-                        role: msg.role,
-                        content: msg.content,
-                        attachments: msg.attachments || (msg.images ? msg.images.map((img: string) => ({ type: 'image/png', url: img, name: 'Image' })) : [])
-                    })));
-                }
+        setLoading(true);
+        isAtBottomRef.current = true;
+        let cancelled = false;
+
+        fetchHistoryPage(conversationId)
+            .then(page => {
+                if (cancelled) return;
+                // Mở cuộc trò chuyện: nhảy thẳng xuống cuối, không cuộn mượt từ đầu
+                // (cuộn qua vùng đầu trang sẽ kích hoạt tải tin nhắn cũ).
+                instantScrollRef.current = true;
+                setMessages(page.messages);
+                setHasMoreHistory(page.hasMore);
+                historyCursorRef.current = page.nextCursor;
             })
             .catch(err => {
+                if (cancelled || err.message === 'Unauthorized') return;
                 console.error(err);
                 toast.error('Không thể tải lịch sử trò chuyện');
             })
-            .finally(() => setLoading(false));
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
     }, [conversationId]);
+
+    const loadOlderMessages = async () => {
+        const id = conversationId;
+        const cursor = historyCursorRef.current;
+        const container = scrollContainerRef.current;
+        if (!id || !cursor || !hasMoreHistory || loadingOlderRef.current || isSendingRef.current) return;
+
+        loadingOlderRef.current = true;
+        setLoadingOlder(true);
+        try {
+            const page = await fetchHistoryPage(id, cursor);
+            // Người dùng có thể đã chuyển sang cuộc trò chuyện khác trong lúc tải.
+            if (id !== conversationIdRef.current) return;
+            if (container) {
+                pendingScrollRestoreRef.current = {
+                    scrollHeight: container.scrollHeight,
+                    scrollTop: container.scrollTop
+                };
+            }
+            setMessages(prev => [...page.messages, ...prev]);
+            setHasMoreHistory(page.hasMore);
+            historyCursorRef.current = page.nextCursor;
+        } catch (err) {
+            if ((err as Error).message !== 'Unauthorized') {
+                console.error(err);
+                toast.error('Không thể tải tin nhắn cũ hơn');
+            }
+        } finally {
+            loadingOlderRef.current = false;
+            setLoadingOlder(false);
+        }
+    };
+
+    // Giữ nguyên vị trí đang đọc sau khi chèn tin nhắn cũ lên đầu danh sách.
+    useLayoutEffect(() => {
+        const restore = pendingScrollRestoreRef.current;
+        const container = scrollContainerRef.current;
+        if (!restore || !container) return;
+        pendingScrollRestoreRef.current = null;
+        container.scrollTop = container.scrollHeight - restore.scrollHeight + restore.scrollTop;
+    }, [messages]);
 
     useEffect(() => {
         if (isAtBottomRef.current && scrollContainerRef.current) {
             const { scrollHeight, clientHeight } = scrollContainerRef.current;
             scrollContainerRef.current.scrollTo({
                 top: scrollHeight - clientHeight,
-                behavior: 'smooth'
+                behavior: instantScrollRef.current ? 'auto' : 'smooth'
             });
         }
+        if (!loading) instantScrollRef.current = false;
     }, [messages, loading]);
 
     const handleScroll = () => {
@@ -221,6 +311,9 @@ export function useChat() {
         const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
         const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
         isAtBottomRef.current = isAtBottom;
+        if (scrollTop < 200 && !loading) {
+            loadOlderMessages();
+        }
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -441,9 +534,19 @@ export function useChat() {
         }
     };
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        const token = localStorage.getItem('chatbot_token');
+        if (token) {
+            // Hủy phiên trên server để token cũ không dùng lại được (vd: máy tính dùng chung).
+            await fetch('/api/auth/logout', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).catch(() => { });
+        }
         localStorage.removeItem('chatbot_token');
         localStorage.removeItem('chatbot_user');
+        // API key gắn với trình duyệt, xóa đi để người dùng sau trên cùng máy không dùng key của người trước.
+        Object.values(API_KEY_STORAGE).forEach(key => localStorage.removeItem(key));
         router.push('/');
         toast.success('Đã đăng xuất');
     };
@@ -478,6 +581,8 @@ export function useChat() {
         selectedMode,
         setSelectedMode,
         selectedModel,
-        setSelectedModel
+        setSelectedModel,
+        hasMoreHistory,
+        loadingOlder
     };
 }

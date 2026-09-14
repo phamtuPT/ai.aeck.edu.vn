@@ -11,14 +11,6 @@ if (!process.env.MONGODB_URI_CHATBOT) {
 const uri = process.env.MONGODB_URI;
 const uriChatbot = process.env.MONGODB_URI_CHATBOT;
 
-if (uri) {
-    console.error('ANTIGRAVITY_DEBUG: MONGODB_URI length:', uri.length);
-    // Mask password but show IP part
-    console.error('ANTIGRAVITY_DEBUG: MONGODB_URI masked:', uri.replace(/:([^:@]+)@/, ':****@'));
-} else {
-    console.error('ANTIGRAVITY_DEBUG: MONGODB_URI is undefined');
-}
-
 const options = {};
 
 let client: MongoClient;
@@ -48,7 +40,7 @@ if (process.env.NODE_ENV === 'development') {
     }
     clientChatbotPromise = globalWithMongo._mongoClientChatbotPromise;
 } else {
-    // In production mode, create a new client for each request
+    // In production mode, each server instance creates its clients once (module scope)
     client = new MongoClient(uri, options);
     clientPromise = client.connect();
 

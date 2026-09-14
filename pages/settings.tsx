@@ -208,7 +208,7 @@ export default function SettingsPage() {
                         <h2 className="text-lg font-semibold mb-1">API Key</h2>
                         <p className="text-sm text-gray-400">
                             Nhập key của ít nhất một hãng để chat. Key chỉ được lưu trên trình duyệt này, được gửi kèm từng tin nhắn để gọi AI
-                            và không được lưu trên máy chủ. Chi phí sử dụng tính vào tài khoản của chính bạn tại hãng đó.
+                            và không được lưu trên máy chủ. Key sẽ tự xóa khi bạn đăng xuất. Chi phí sử dụng tính vào tài khoản của chính bạn tại hãng đó.
                         </p>
                     </div>
                     {PROVIDER_ORDER.map(id => (

@@ -45,7 +45,9 @@ export default function ChatPage() {
         selectedMode,
         setSelectedMode,
         selectedModel,
-        setSelectedModel
+        setSelectedModel,
+        hasMoreHistory,
+        loadingOlder
     } = useChat();
 
     const onNewChat = () => {
@@ -143,6 +145,8 @@ export default function ChatPage() {
                         loading={loading}
                         isThinking={isThinking}
                         messagesEndRef={messagesEndRef}
+                        hasMoreHistory={hasMoreHistory}
+                        loadingOlder={loadingOlder}
                     />
                 </div>
 

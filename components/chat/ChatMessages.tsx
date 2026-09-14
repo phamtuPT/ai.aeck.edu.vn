@@ -5,17 +5,15 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import CodeBlock from '../ui/CodeBlock';
 
-interface ChatMessage {
-    role: 'user' | 'ai';
-    content: string;
-    attachments?: { name: string; type: string; url: string }[];
-}
+import type { ChatMessage } from '@/types/chat';
 
 interface ChatMessagesProps {
     messages: ChatMessage[];
     loading: boolean;
     isThinking: boolean;
     messagesEndRef: React.RefObject<HTMLDivElement | null>;
+    hasMoreHistory?: boolean;
+    loadingOlder?: boolean;
 }
 
 function cleanMarkdown(content: string): string {
@@ -34,7 +32,7 @@ function cleanMarkdown(content: string): string {
     return content;
 }
 
-export default function ChatMessages({ messages, loading, isThinking, messagesEndRef }: ChatMessagesProps) {
+export default function ChatMessages({ messages, loading, isThinking, messagesEndRef, hasMoreHistory, loadingOlder }: ChatMessagesProps) {
     const suggestions = [
         "Giải thích bài toán này",
         "Tạo đề thi mẫu",
@@ -66,9 +64,15 @@ export default function ChatMessages({ messages, loading, isThinking, messagesEn
                 </div>
             )}
 
+            {messages.length > 0 && (hasMoreHistory || loadingOlder) && (
+                <div className="flex justify-center mb-6 text-xs text-gray-500">
+                    {loadingOlder ? 'Đang tải tin nhắn cũ hơn...' : 'Cuộn lên để xem tin nhắn cũ hơn'}
+                </div>
+            )}
+
             <div className="space-y-8">
                 {messages.map((msg, idx) => (
-                    <div key={idx} className={`group animate-slide-up ${msg.role === 'user' ? 'flex justify-end' : 'flex gap-4'}`}>
+                    <div key={msg.id ?? `local-${idx}`} className={`group animate-slide-up ${msg.role === 'user' ? 'flex justify-end' : 'flex gap-4'}`}>
                         {msg.role === 'user' ? (
                             <div className="flex flex-col items-end max-w-[85%]">
                                 {msg.attachments && msg.attachments.length > 0 && (
